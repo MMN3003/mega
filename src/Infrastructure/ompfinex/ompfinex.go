@@ -801,8 +801,8 @@ type OrderBook struct {
 	Asks         [][]string `json:"asks"`
 }
 
-func (c *Client) GetMarketDepth(ctx context.Context, marketID int64) (OrderBook, error) {
-	return doJSON[OrderBook](c, ctx, http.MethodGet, fmt.Sprintf("/v1/market/%d/depth", marketID), url.Values{"limit": {"200"}}, nil, "")
+func (c *Client) GetMarketDepth(ctx context.Context, marketID string) (OrderBook, error) {
+	return doJSON[OrderBook](c, ctx, http.MethodGet, fmt.Sprintf("/v1/market/%s/depth", marketID), url.Values{"limit": {"200"}}, nil, "")
 }
 
 // --- Utility helpers ---

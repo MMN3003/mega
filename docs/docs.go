@@ -15,6 +15,62 @@ const docTemplate = `{
     "host": "{{.Host}}",
     "basePath": "{{.BasePath}}",
     "paths": {
+        "/market/best-price": {
+            "put": {
+                "description": "Get the best exchange price for a given market and volume",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "market"
+                ],
+                "summary": "Get best exchange price by volume",
+                "parameters": [
+                    {
+                        "description": "Request body",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/http.GetBestExchangePriceByVolumeRequestBody"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/http.GetBestExchangePriceByVolumeResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "type": "object",
+                            "properties": {
+                                "error": {
+                                    "type": "string"
+                                }
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "type": "object",
+                            "properties": {
+                                "error": {
+                                    "type": "string"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
         "/markets": {
             "get": {
                 "description": "Get all available market",
@@ -93,6 +149,33 @@ const docTemplate = `{
                     "items": {
                         "$ref": "#/definitions/http.MarketDto"
                     }
+                }
+            }
+        },
+        "http.GetBestExchangePriceByVolumeRequestBody": {
+            "type": "object",
+            "properties": {
+                "market_name": {
+                    "type": "string",
+                    "example": "BTC/USDT"
+                },
+                "volume": {
+                    "description": "decimal string",
+                    "type": "string",
+                    "example": "100.0"
+                }
+            }
+        },
+        "http.GetBestExchangePriceByVolumeResponse": {
+            "type": "object",
+            "properties": {
+                "exchange_name": {
+                    "type": "string",
+                    "example": "ompfinex"
+                },
+                "price": {
+                    "type": "number",
+                    "example": 100
                 }
             }
         },

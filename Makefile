@@ -18,6 +18,8 @@ build:
 ## Run locally
 .PHONY: run
 run:
+	@echo ">> Generating swagger docs..."
+	swag init -g $(CMD_DIR)/main.go -o ./docs
 	@echo ">> Running $(APP_NAME)..."
 	go run $(CMD_DIR)
 

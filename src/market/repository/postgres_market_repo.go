@@ -126,7 +126,7 @@ func (r *Repo) UpsertMarketsForExchange(ctx context.Context, markets []domain.Ma
 		Clauses(
 			clause.OnConflict{
 				Columns:   []clause.Column{{Name: "exchange_market_identifier"}, {Name: "exchange_name"}},
-				DoUpdates: clause.AssignmentColumns([]string{"exchange_name", "is_active", "updated_at"}),
+				DoUpdates: clause.AssignmentColumns([]string{"exchange_name", "is_active", "market_name", "updated_at"}),
 			},
 		).
 		Create(&models).Error; err != nil {
