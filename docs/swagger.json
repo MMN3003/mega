@@ -1,0 +1,142 @@
+{
+    "swagger": "2.0",
+    "info": {
+        "contact": {}
+    },
+    "paths": {
+        "/markets": {
+            "get": {
+                "description": "Get all available market",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "market"
+                ],
+                "summary": "List available market",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/http.FetchAndUpdateMarketsResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "type": "object",
+                            "properties": {
+                                "error": {
+                                    "type": "string"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/swap/pairs": {
+            "get": {
+                "description": "Get all available trading pairs",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "swap"
+                ],
+                "summary": "List available swap pairs",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/http.ListPairsResponseBody"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "type": "object",
+                            "properties": {
+                                "error": {
+                                    "type": "string"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    },
+    "definitions": {
+        "http.FetchAndUpdateMarketsResponse": {
+            "type": "object",
+            "properties": {
+                "markets": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/http.MarketDto"
+                    }
+                }
+            }
+        },
+        "http.ListPairsResponseBody": {
+            "type": "object",
+            "properties": {
+                "pairs": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/http.PairDTO"
+                    }
+                }
+            }
+        },
+        "http.MarketDto": {
+            "type": "object",
+            "properties": {
+                "exchange_market_identifier": {
+                    "type": "string",
+                    "example": "BTC/USDT"
+                },
+                "exchange_name": {
+                    "type": "string",
+                    "example": "ompfinex"
+                },
+                "is_active": {
+                    "type": "boolean",
+                    "example": true
+                },
+                "market_name": {
+                    "type": "string",
+                    "example": "BTC/USDT"
+                }
+            }
+        },
+        "http.PairDTO": {
+            "type": "object",
+            "properties": {
+                "from_network": {
+                    "type": "string",
+                    "example": "sepolia"
+                },
+                "from_token": {
+                    "type": "string",
+                    "example": "USDT"
+                },
+                "to_network": {
+                    "type": "string",
+                    "example": "mumbai"
+                },
+                "to_token": {
+                    "type": "string",
+                    "example": "MATIC"
+                }
+            }
+        }
+    }
+}

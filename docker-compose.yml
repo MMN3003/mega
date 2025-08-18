@@ -1,0 +1,49 @@
+version: "3.9"
+
+networks:
+  swap-network:
+    driver: bridge
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: swap_postgres
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-swap_user}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-swap_pass}
+      POSTGRES_DB: ${POSTGRES_DB:-swap_db}
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-swap_user} -d ${POSTGRES_DB:-swap_db}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - swap-network
+
+  swap-backend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: swap_backend
+    depends_on:
+      postgres:
+        condition: service_healthy
+    env_file:
+      - .env
+    environment:
+      APP_ENV: ${APP_ENV:-production}
+      DATABASE_URL: ${DATABASE_URL:-postgres://swap_user:swap_pass@postgres:5432/swap_db?sslmode=disable}
+      LISTEN_ADDR: ${LISTEN_ADDR:-:8080}
+    ports:
+      - "8080:8080"
+    networks:
+      - swap-network
+    restart: unless-stopped
+    command: ["/app/swap"]
+
+volumes:
+  postgres_data:

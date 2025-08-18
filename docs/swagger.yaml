@@ -1,0 +1,93 @@
+definitions:
+  http.FetchAndUpdateMarketsResponse:
+    properties:
+      markets:
+        items:
+          $ref: '#/definitions/http.MarketDto'
+        type: array
+    type: object
+  http.ListPairsResponseBody:
+    properties:
+      pairs:
+        items:
+          $ref: '#/definitions/http.PairDTO'
+        type: array
+    type: object
+  http.MarketDto:
+    properties:
+      exchange_market_identifier:
+        example: BTC/USDT
+        type: string
+      exchange_name:
+        example: ompfinex
+        type: string
+      is_active:
+        example: true
+        type: boolean
+      market_name:
+        example: BTC/USDT
+        type: string
+    type: object
+  http.PairDTO:
+    properties:
+      from_network:
+        example: sepolia
+        type: string
+      from_token:
+        example: USDT
+        type: string
+      to_network:
+        example: mumbai
+        type: string
+      to_token:
+        example: MATIC
+        type: string
+    type: object
+info:
+  contact: {}
+paths:
+  /markets:
+    get:
+      consumes:
+      - application/json
+      description: Get all available market
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/http.FetchAndUpdateMarketsResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            properties:
+              error:
+                type: string
+            type: object
+      summary: List available market
+      tags:
+      - market
+  /swap/pairs:
+    get:
+      consumes:
+      - application/json
+      description: Get all available trading pairs
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/http.ListPairsResponseBody'
+        "500":
+          description: Internal Server Error
+          schema:
+            properties:
+              error:
+                type: string
+            type: object
+      summary: List available swap pairs
+      tags:
+      - swap
+swagger: "2.0"
