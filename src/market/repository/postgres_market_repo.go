@@ -20,6 +20,7 @@ var _ domain.MarketRepository = (*Repo)(nil)
 // DeletedAt gorm.DeletedAt `gorm:"index"`
 type Market struct {
 	gorm.Model
+
 	ExchangeMarketIdentifier string `gorm:"not null;uniqueIndex:uidx_exchange_market"`
 	ExchangeName             string `gorm:"not null;uniqueIndex:uidx_exchange_market"`
 	MegaMarketID             uint   `gorm:"not null;index:idx_mega_market"`
@@ -79,7 +80,10 @@ func (r *Repo) SoftDelete(ctx context.Context, id uint) error {
 	return r.db.WithContext(ctx).Delete(&Market{}, id).Error
 }
 func (r *Repo) SoftDeleteAll(ctx context.Context) error {
-	return r.db.WithContext(ctx).Delete(&Market{}, "").Error
+	return r.db.
+		WithContext(ctx).
+		Session(&gorm.Session{AllowGlobalUpdate: true}).
+		Delete(&Market{}).Error
 }
 
 // Indexed fetch: by ExchangeName
@@ -146,7 +150,7 @@ func (r *Repo) UpsertMarketsForExchange(ctx context.Context, markets []domain.Ma
 		Clauses(
 			clause.OnConflict{
 				Columns:   []clause.Column{{Name: "exchange_market_identifier"}, {Name: "exchange_name"}},
-				DoUpdates: clause.AssignmentColumns([]string{"exchange_name", "is_active", "market_name", "updated_at"}),
+				DoUpdates: clause.AssignmentColumns([]string{"exchange_name", "is_active", "market_name", "updated_at", "deleted_at"}),
 			},
 		).
 		Create(&models).Error; err != nil {
