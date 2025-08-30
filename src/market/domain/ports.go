@@ -10,6 +10,7 @@ type MarketRepository interface {
 	GetMarketByID(ctx context.Context, id uint) (*Market, error)
 	UpdateMarket(ctx context.Context, m *Market) error
 	SoftDelete(ctx context.Context, id uint) error
+	SoftDeleteAll(ctx context.Context) error
 
 	GetMarketsByExchangeName(ctx context.Context, exchangeName string) ([]*Market, error)
 	GetMarketsByMarketName(ctx context.Context, marketName string) ([]*Market, error)

@@ -30,11 +30,41 @@ type MegaMarketRepo struct {
 	log *logger.Logger
 }
 
+func (r *MegaMarketRepo) Seed(ctx context.Context) error {
+	// Check if the table already has data
+	var count int64
+	if err := r.db.WithContext(ctx).Model(&MegaMarket{}).Count(&count).Error; err != nil {
+		return err
+	}
+	if count > 0 {
+		r.log.Infof("MegaMarket table already seeded with %d records", count)
+		return nil
+	}
+
+	// Define your seed data
+	seedData := []MegaMarket{
+		{
+			ExchangeMarketNames: `["BTC/USDT","Bitcoin/Tether"]`,
+			IsActive:            true,
+		},
+	}
+
+	// Insert seed data
+	if err := r.db.WithContext(ctx).Create(&seedData).Error; err != nil {
+		return err
+	}
+
+	r.log.Infof("Seeded MegaMarket table with %d records", len(seedData))
+	return nil
+}
 func NewMegaMarketRepo(db *gorm.DB, log *logger.Logger) *MegaMarketRepo {
 	if err := db.AutoMigrate(&MegaMarket{}); err != nil {
 		log.Fatalf("failed to migrate schema: %v", err)
 	}
-	return &MegaMarketRepo{db: db, log: log}
+
+	repo := &MegaMarketRepo{db: db, log: log}
+	repo.Seed(context.Background())
+	return repo
 }
 
 // ---------- MARKET CRUD ----------

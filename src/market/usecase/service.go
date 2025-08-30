@@ -168,6 +168,7 @@ func (s *Service) FetchAndUpdateMarkets(ctx context.Context) ([]domain.Market, e
 	if len(allMarkets) == 0 {
 		return nil, errors.New("failed to fetch markets from all exchanges")
 	}
+	s.marketsRepo.SoftDeleteAll(ctx)
 
 	// --- Step 4: Persist
 	if err := s.marketsRepo.UpsertMarketsForExchange(ctx, allMarkets); err != nil {

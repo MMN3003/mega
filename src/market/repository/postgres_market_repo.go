@@ -78,6 +78,9 @@ func (r *Repo) UpdateMarket(ctx context.Context, m *domain.Market) error {
 func (r *Repo) SoftDelete(ctx context.Context, id uint) error {
 	return r.db.WithContext(ctx).Delete(&Market{}, id).Error
 }
+func (r *Repo) SoftDeleteAll(ctx context.Context) error {
+	return r.db.WithContext(ctx).Delete(&Market{}, "").Error
+}
 
 // Indexed fetch: by ExchangeName
 func (r *Repo) GetMarketsByExchangeName(ctx context.Context, exchangeName string) ([]*domain.Market, error) {
