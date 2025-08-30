@@ -22,6 +22,7 @@ type Market struct {
 	gorm.Model
 	ExchangeMarketIdentifier string `gorm:"not null;uniqueIndex:uidx_exchange_market"`
 	ExchangeName             string `gorm:"not null;uniqueIndex:uidx_exchange_market"`
+	MegaMarketID             uint   `gorm:"not null;index:idx_mega_market"`
 	MarketName               string `gorm:"not null;index:idx_market"`
 	IsActive                 bool   `gorm:"not null;default:true"`
 }
@@ -108,6 +109,21 @@ func (r *Repo) GetMarketsByMarketName(ctx context.Context, marketName string) ([
 	return out, nil
 }
 
+// Indexed fetch: by MegaMarketID
+func (r *Repo) GetMarketsByMegaMarketId(ctx context.Context, megaMarketId uint) ([]*domain.Market, error) {
+	var models []Market
+	if err := r.db.WithContext(ctx).
+		Where("mega_market_id = ?", megaMarketId).
+		Find(&models).Error; err != nil {
+		return nil, err
+	}
+	out := make([]*domain.Market, 0, len(models))
+	for _, m := range models {
+		out = append(out, r.toDomainMarket(&m))
+	}
+	return out, nil
+}
+
 // UpsertMarketsForExchange inserts or updates a batch of markets for an exchange.
 func (r *Repo) UpsertMarketsForExchange(ctx context.Context, markets []domain.Market) error {
 	var models []Market
@@ -117,6 +133,7 @@ func (r *Repo) UpsertMarketsForExchange(ctx context.Context, markets []domain.Ma
 			ExchangeName:             m.ExchangeName,
 			MarketName:               m.MarketName,
 			IsActive:                 m.IsActive,
+			MegaMarketID:             m.MegaMarketID,
 		})
 	}
 

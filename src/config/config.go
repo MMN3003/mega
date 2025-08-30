@@ -14,11 +14,17 @@ type Config struct {
 	QuoteTTL    time.Duration
 	DatabaseURL string
 	OMP         OMPConfig
+	Wallex      WallexConfig
 }
 
 type OMPConfig struct {
 	BaseURL string
 	Token   string
+}
+
+type WallexConfig struct {
+	BaseURL string
+	APIKey  string
 }
 
 // LoadFromEnv reads configuration from environment variables with fallback defaults.
@@ -51,6 +57,10 @@ func LoadFromEnv() *Config {
 		OMP: OMPConfig{
 			BaseURL: getEnv("OMP_BASE_URL", "https://api.ompfinex.com"),
 			Token:   getEnv("OMP_TOKEN", ""),
+		},
+		Wallex: WallexConfig{
+			BaseURL: getEnv("WALLEX_BASE_URL", "https://api.wallex.ir"),
+			APIKey:  getEnv("WALLEX_API_KEY", ""),
 		},
 	}
 }

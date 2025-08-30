@@ -71,7 +71,7 @@ func (h *Handler) GetBestExchangePriceByVolume(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid request"})
 		return
 	}
-	marketName := req.MarketName
+	megaMarketId := req.MegaMarketID
 	volumeStr := req.Volume
 
 	volume, err := decimal.NewFromString(volumeStr)
@@ -81,7 +81,7 @@ func (h *Handler) GetBestExchangePriceByVolume(c *gin.Context) {
 		return
 	}
 
-	price, exchangeName, err := h.service.GetBestExchangePriceByVolume(ctx, marketName, volume)
+	price, exchangeName, err := h.service.GetBestExchangePriceByVolume(ctx, megaMarketId, volume)
 	if err != nil {
 		h.logger.Errorf("GetBestExchangePriceByVolume err: %v", err)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})

@@ -63,8 +63,8 @@ type FetchAndUpdateMarketsResponse struct {
 // CreateQuoteRequestBody is the payload to request a quote
 // swagger:model CreateQuoteRequestBody
 type GetBestExchangePriceByVolumeRequestBody struct {
-	MarketName string `json:"market_name" example:"BTC/USDT"`
-	Volume     string `json:"volume" example:"100.0"` // decimal string
+	MegaMarketID uint   `json:"mega_market_id" example:"1"`
+	Volume       string `json:"volume" example:"100.0"` // decimal string
 }
 
 // CreateQuoteResponseBody returns a quote

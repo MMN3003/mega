@@ -8,9 +8,9 @@ definitions:
     type: object
   http.GetBestExchangePriceByVolumeRequestBody:
     properties:
-      market_name:
-        example: BTC/USDT
-        type: string
+      mega_market_id:
+        example: 1
+        type: integer
       volume:
         description: decimal string
         example: "100.0"

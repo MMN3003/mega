@@ -7,7 +7,7 @@ import (
 	"github.com/MMN3003/mega/src/config"
 	"github.com/MMN3003/mega/src/logger"
 	marketHD "github.com/MMN3003/mega/src/market/delivery/http"
-	marketRepo "github.com/MMN3003/mega/src/market/repository"
+	_marketRepo "github.com/MMN3003/mega/src/market/repository"
 	market "github.com/MMN3003/mega/src/market/usecase"
 
 	_ "github.com/MMN3003/mega/docs" // Swagger docs
@@ -48,8 +48,9 @@ func main() {
 	sqlDB.SetConnMaxLifetime(10 * time.Minute)
 
 	// --- Dependencies ---
-	marketRepo := marketRepo.NewRepo(gormDB, logg)
-	marketSvc := market.NewService(marketRepo, logg, cfg)
+	marketRepo := _marketRepo.NewRepo(gormDB, logg)
+	megaMarketRepo := _marketRepo.NewMegaMarketRepo(gormDB, logg)
+	marketSvc := market.NewService(marketRepo, megaMarketRepo, logg, cfg)
 	handler := marketHD.NewHandler(marketSvc, logg)
 
 	// --- Router ---

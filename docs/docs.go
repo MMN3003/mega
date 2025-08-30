@@ -155,9 +155,9 @@ const docTemplate = `{
         "http.GetBestExchangePriceByVolumeRequestBody": {
             "type": "object",
             "properties": {
-                "market_name": {
-                    "type": "string",
-                    "example": "BTC/USDT"
+                "mega_market_id": {
+                    "type": "integer",
+                    "example": 1
                 },
                 "volume": {
                     "description": "decimal string",
