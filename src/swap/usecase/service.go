@@ -4,33 +4,90 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strconv"
 	"time"
 
+	"github.com/MMN3003/mega/src/Infrastructure/ompfinex"
+	"github.com/MMN3003/mega/src/Infrastructure/wallex"
+	"github.com/MMN3003/mega/src/config"
 	"github.com/MMN3003/mega/src/logger"
+	"github.com/MMN3003/mega/src/swap/adapter/market"
 	"github.com/MMN3003/mega/src/swap/domain"
 	"github.com/google/uuid"
 	"github.com/shopspring/decimal"
 )
 
 type Service struct {
-	quotes   domain.QuoteRepository
-	adapters map[string]domain.OnChainAdapter
-	logger   *logger.Logger
-	rates    map[string]decimal.Decimal
-	quoteTTL time.Duration
+	quotes         domain.QuoteRepository
+	adapters       map[string]domain.OnChainAdapter
+	logger         *logger.Logger
+	rates          map[string]decimal.Decimal
+	quoteTTL       time.Duration
+	ompfinexClient *ompfinex.Client
+	wallexClient   *wallex.Client
+	marketAdapter  market.MarketAdapter
 }
 
-func NewService(q domain.QuoteRepository, adapters map[string]domain.OnChainAdapter, logg *logger.Logger, ttl time.Duration) *Service {
+func NewService(q domain.QuoteRepository, adapters map[string]domain.OnChainAdapter, logg *logger.Logger, ttl time.Duration, cfg *config.Config) *Service {
+	ompfinexClient, _ := ompfinex.NewClient(cfg.OMP.BaseURL,
+		ompfinex.WithAuthToken(cfg.OMP.Token),
+	)
+	wallexClient, _ := wallex.NewClient(cfg.Wallex.BaseURL,
+		wallex.WithAPIKey(cfg.Wallex.APIKey),
+	)
 	s := &Service{
-		quotes:   q,
-		adapters: adapters,
-		logger:   logg,
-		rates:    make(map[string]decimal.Decimal),
-		quoteTTL: ttl,
+		quotes:         q,
+		adapters:       adapters,
+		logger:         logg,
+		rates:          make(map[string]decimal.Decimal),
+		quoteTTL:       ttl,
+		ompfinexClient: ompfinexClient,
+		wallexClient:   wallexClient,
 	}
 	// seed a sample rate: USDT -> MATIC => 0.985
 	s.rates["USDT|MATIC"] = decimal.NewFromFloat(0.985)
 	return s
+}
+func (s *Service) SetAdapters(ctx context.Context, marketAdapter market.MarketAdapter) error {
+	s.marketAdapter = marketAdapter
+	return nil
+}
+func (s *Service) PlaceMarketOrder(ctx context.Context, marketId uint, volume decimal.Decimal, isBuy bool) (string, error) {
+	market, err := s.marketAdapter.GetMarketByID(ctx, marketId)
+	if err != nil {
+		return "", err
+	}
+	switch market.ExchangeName {
+	case "ompfinex":
+		marketId, _ := strconv.ParseInt(market.ExchangeMarketIdentifier, 10, 64)
+		side := ompfinex.SideSell
+		if isBuy {
+			side = ompfinex.SideBuy
+		}
+		order, err := s.ompfinexClient.PlaceOrder(ctx, ompfinex.PlaceOrderRequest{
+			MarketID: marketId,
+			Side:     side,
+			Type:     ompfinex.OrderMarket,
+			Price:    nil,
+			Amount:   volume,
+		})
+		if err != nil {
+			return "", err
+		}
+		return strconv.FormatInt(order.ID, 10), nil
+	case "wallex":
+		side := wallex.OrderSideSell
+		if isBuy {
+			side = wallex.OrderSideBuy
+		}
+		order, err := s.wallexClient.PlaceMarketOrder(ctx, market.ExchangeMarketIdentifier, side, volume)
+		if err != nil {
+			return "", err
+		}
+		return order.ClientOrderID, nil
+	default:
+		return "", errors.New("unsupported exchange")
+	}
 }
 
 func (s *Service) ListPairs(ctx context.Context) ([]map[string]string, error) {

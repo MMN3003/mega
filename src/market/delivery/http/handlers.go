@@ -12,11 +12,11 @@ import (
 
 // Handler binds usecase + logger
 type Handler struct {
-	service *usecase.Service
+	service *usecase.MarketService
 	logger  *logger.Logger
 }
 
-func NewHandler(s *usecase.Service, l *logger.Logger) *Handler {
+func NewHandler(s *usecase.MarketService, l *logger.Logger) *Handler {
 	return &Handler{service: s, logger: l}
 }
 
@@ -81,12 +81,11 @@ func (h *Handler) GetBestExchangePriceByVolume(c *gin.Context) {
 		return
 	}
 
-	price, exchangeName, err := h.service.GetBestExchangePriceByVolume(ctx, megaMarketId, volume)
+	price, market, err := h.service.GetBestExchangePriceByVolume(ctx, megaMarketId, volume)
 	if err != nil {
 		h.logger.Errorf("GetBestExchangePriceByVolume err: %v", err)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
 		return
 	}
-
-	c.JSON(http.StatusOK, GetBestExchangePriceByVolumeResponse{Price: price, ExchangeName: exchangeName})
+	c.JSON(http.StatusOK, GetBestExchangePriceByVolumeResponseFromDomain(market, price))
 }

@@ -503,20 +503,22 @@ type Order struct {
 	Status    string          `json:"status"`
 	CreatedAt string          `json:"created_at"`
 }
+type OrderId struct {
+	ID int64 `json:"id"`
+}
 
-func (c *Client) PlaceOrder(ctx context.Context, in PlaceOrderRequest) (Order, error) {
-	return doJSON[Order](c, ctx, http.MethodPost, "/v1/order", nil, in, "")
+func (c *Client) PlaceOrder(ctx context.Context, in PlaceOrderRequest) (OrderId, error) {
+	p := fmt.Sprintf("/v1/market/%d/order", in.MarketID)
+	return doJSON[OrderId](c, ctx, http.MethodPost, p, nil, in, "")
+}
+func (c *Client) CancelOrder(ctx context.Context, orderId int64) (interface{}, error) {
+	p := fmt.Sprintf("/v1/user/order?id=%d", orderId)
+	return doJSON[interface{}](c, ctx, http.MethodDelete, p, nil, nil, "")
 }
 
 func (c *Client) GetOrder(ctx context.Context, id int64) (Order, error) {
 	p := fmt.Sprintf("/v1/order/%d", id)
 	return doJSON[Order](c, ctx, http.MethodGet, p, nil, nil, "")
-}
-
-func (c *Client) CancelOrder(ctx context.Context, id int64) error {
-	p := fmt.Sprintf("/v1/order/%d", id)
-	_, err := doJSON[json.RawMessage](c, ctx, http.MethodDelete, p, nil, nil, "")
-	return err
 }
 
 // ListUserOrders supports optional market_id and pagination.

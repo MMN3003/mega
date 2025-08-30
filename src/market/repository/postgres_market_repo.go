@@ -87,48 +87,36 @@ func (r *Repo) SoftDeleteAll(ctx context.Context) error {
 }
 
 // Indexed fetch: by ExchangeName
-func (r *Repo) GetMarketsByExchangeName(ctx context.Context, exchangeName string) ([]*domain.Market, error) {
+func (r *Repo) GetMarketsByExchangeName(ctx context.Context, exchangeName string) ([]domain.Market, error) {
 	var models []Market
 	if err := r.db.WithContext(ctx).
 		Where("exchange_name = ?", exchangeName).
 		Find(&models).Error; err != nil {
 		return nil, err
 	}
-	out := make([]*domain.Market, 0, len(models))
-	for _, m := range models {
-		out = append(out, r.toDomainMarket(&m))
-	}
-	return out, nil
+	return r.toDomainMarkets(models), nil
 }
 
 // Indexed fetch: by MarketName
-func (r *Repo) GetMarketsByMarketName(ctx context.Context, marketName string) ([]*domain.Market, error) {
+func (r *Repo) GetMarketsByMarketName(ctx context.Context, marketName string) ([]domain.Market, error) {
 	var models []Market
 	if err := r.db.WithContext(ctx).
 		Where("market_name = ?", marketName).
 		Find(&models).Error; err != nil {
 		return nil, err
 	}
-	out := make([]*domain.Market, 0, len(models))
-	for _, m := range models {
-		out = append(out, r.toDomainMarket(&m))
-	}
-	return out, nil
+	return r.toDomainMarkets(models), nil
 }
 
 // Indexed fetch: by MegaMarketID
-func (r *Repo) GetMarketsByMegaMarketId(ctx context.Context, megaMarketId uint) ([]*domain.Market, error) {
+func (r *Repo) GetMarketsByMegaMarketId(ctx context.Context, megaMarketId uint) ([]domain.Market, error) {
 	var models []Market
 	if err := r.db.WithContext(ctx).
 		Where("mega_market_id = ?", megaMarketId).
 		Find(&models).Error; err != nil {
 		return nil, err
 	}
-	out := make([]*domain.Market, 0, len(models))
-	for _, m := range models {
-		out = append(out, r.toDomainMarket(&m))
-	}
-	return out, nil
+	return r.toDomainMarkets(models), nil
 }
 
 // UpsertMarketsForExchange inserts or updates a batch of markets for an exchange.
@@ -161,6 +149,16 @@ func (r *Repo) UpsertMarketsForExchange(ctx context.Context, markets []domain.Ma
 	return nil
 }
 
+func (r *Repo) GetAllActiveMarkets(ctx context.Context) ([]domain.Market, error) {
+	var models []Market
+	if err := r.db.WithContext(ctx).
+		Where("is_active = ?", true).
+		Find(&models).Error; err != nil {
+		return nil, err
+	}
+	return r.toDomainMarkets(models), nil
+}
+
 // ---------- HELPERS ----------
 
 func (r *Repo) toDomainMarket(m *Market) *domain.Market {
@@ -170,5 +168,13 @@ func (r *Repo) toDomainMarket(m *Market) *domain.Market {
 		ExchangeName:             m.ExchangeName,
 		MarketName:               m.MarketName,
 		IsActive:                 m.IsActive,
+		MegaMarketID:             m.MegaMarketID,
 	}
+}
+func (r *Repo) toDomainMarkets(ms []Market) []domain.Market {
+	var dms []domain.Market
+	for _, m := range ms {
+		dms = append(dms, *r.toDomainMarket(&m))
+	}
+	return dms
 }

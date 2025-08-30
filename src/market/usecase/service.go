@@ -17,7 +17,7 @@ import (
 	"golang.org/x/sync/errgroup"
 )
 
-type Service struct {
+type MarketService struct {
 	marketsRepo    domain.MarketRepository
 	megaMarketRepo domain.MegaMarketRepository
 	logger         *logger.Logger
@@ -25,14 +25,14 @@ type Service struct {
 	wallexClient   *wallex.Client
 }
 
-func NewService(m domain.MarketRepository, megaMarketRepo domain.MegaMarketRepository, logg *logger.Logger, cfg *config.Config) *Service {
+func NewService(m domain.MarketRepository, megaMarketRepo domain.MegaMarketRepository, logg *logger.Logger, cfg *config.Config) *MarketService {
 	ompfinexClient, _ := ompfinex.NewClient(cfg.OMP.BaseURL,
 		ompfinex.WithAuthToken(cfg.OMP.Token),
 	)
 	wallexClient, _ := wallex.NewClient(cfg.Wallex.BaseURL,
 		wallex.WithAPIKey(cfg.Wallex.APIKey),
 	)
-	s := &Service{
+	s := &MarketService{
 		marketsRepo:    m,
 		megaMarketRepo: megaMarketRepo,
 		logger:         logg,
@@ -42,7 +42,7 @@ func NewService(m domain.MarketRepository, megaMarketRepo domain.MegaMarketRepos
 	return s
 }
 
-func (s *Service) UpsertMarketPairs(ctx context.Context, exchangeName string, markets []string) error {
+func (s *MarketService) UpsertMarketPairs(ctx context.Context, exchangeName string, markets []string) error {
 
 	var marketList []domain.Market
 	for _, market := range markets {
@@ -56,7 +56,7 @@ func (s *Service) UpsertMarketPairs(ctx context.Context, exchangeName string, ma
 	return s.marketsRepo.UpsertMarketsForExchange(ctx, marketList)
 }
 
-func (s *Service) FetchAndUpdateMarkets(ctx context.Context) ([]domain.Market, error) {
+func (s *MarketService) FetchAndUpdateMarkets(ctx context.Context) ([]domain.Market, error) {
 	// --- Step 1: Load MegaMarkets
 	megaMarkets, err := s.megaMarketRepo.GetAllActiveMegaMarkets(ctx)
 	if err != nil {
@@ -176,33 +176,39 @@ func (s *Service) FetchAndUpdateMarkets(ctx context.Context) ([]domain.Market, e
 		return nil, err
 	}
 
-	return allMarkets, nil
+	storedMarkets, err := s.marketsRepo.GetAllActiveMarkets(ctx)
+	if err != nil {
+		s.logger.Errorf("failed to get active markets: %v", err)
+		return nil, err
+	}
+	return storedMarkets, nil
 }
 
-func (s *Service) GetBestExchangePriceByVolume(
+func (s *MarketService) GetBestExchangePriceByVolume(
 	ctx context.Context,
 	megaMarketId uint,
 	volume decimal.Decimal,
-) (decimal.Decimal, string, error) {
+) (decimal.Decimal, *domain.Market, error) {
 
 	// --- Fetch candidate markets
 	megaMarket, err := s.megaMarketRepo.GetActiveMegaMarketByID(ctx, megaMarketId)
 	if err != nil {
 		s.logger.Errorf("get active mega market by id failed: %v", err)
-		return decimal.Zero, "", err
+		return decimal.Zero, nil, err
 	}
 	if megaMarket == nil {
-		return decimal.Zero, "", errors.New("no active mega market found for id")
+		return decimal.Zero, nil, errors.New("no active mega market found for id")
 	}
 	markets, err := s.marketsRepo.GetMarketsByMegaMarketId(ctx, megaMarketId)
 	if err != nil {
 		s.logger.Errorf("get markets by mega market id failed: %v", err)
-		return decimal.Zero, "", err
+		return decimal.Zero, nil, err
 	}
 
 	type result struct {
 		price        decimal.Decimal
 		exchangeName string
+		market       domain.Market
 	}
 
 	var (
@@ -224,7 +230,7 @@ func (s *Service) GetBestExchangePriceByVolume(
 			}
 
 			mu.Lock()
-			results = append(results, result{price: price, exchangeName: m.ExchangeName})
+			results = append(results, result{price: price, exchangeName: m.ExchangeName, market: m})
 			mu.Unlock()
 			return nil
 		})
@@ -234,7 +240,7 @@ func (s *Service) GetBestExchangePriceByVolume(
 
 	// --- Pick the lowest price
 	if len(results) == 0 {
-		return decimal.Zero, "", errors.New("could not determine best price")
+		return decimal.Zero, nil, errors.New("could not determine best price")
 	}
 
 	best := results[0]
@@ -244,9 +250,9 @@ func (s *Service) GetBestExchangePriceByVolume(
 		}
 	}
 
-	return best.price, best.exchangeName, nil
+	return best.price, &best.market, nil
 }
-func (s *Service) fetchAndCalculatePrice(
+func (s *MarketService) fetchAndCalculatePrice(
 	ctx context.Context,
 	exchangeName string,
 	exchangeMarketID string,
@@ -273,7 +279,7 @@ func (s *Service) fetchAndCalculatePrice(
 }
 
 // calculateOmpfinexPrice calculates the price to buy the requested volume
-func (s *Service) calculateOmpfinexPrice(depth ompfinex.OrderBook, volume decimal.Decimal) (decimal.Decimal, error) {
+func (s *MarketService) calculateOmpfinexPrice(depth ompfinex.OrderBook, volume decimal.Decimal) (decimal.Decimal, error) {
 	if volume.LessThanOrEqual(decimal.Zero) {
 		return decimal.Zero, errors.New("volume must be positive")
 	}
@@ -314,11 +320,14 @@ func (s *Service) calculateOmpfinexPrice(depth ompfinex.OrderBook, volume decima
 
 	return decimal.Zero, errors.New("not enough volume in order book")
 }
+func (s *MarketService) GetMarketByID(ctx context.Context, id uint) (*domain.Market, error) {
+	return s.marketsRepo.GetMarketByID(ctx, id)
+}
 
 // calculateWallexPrice calculates the minimum average price to buy the specified volume
 // by consuming asks from the order book starting from the best (lowest) price.
 // Returns the weighted average price or error if not enough volume available.
-func (s *Service) calculateWallexPrice(depth *wallex.OrderBook, volume decimal.Decimal) (decimal.Decimal, error) {
+func (s *MarketService) calculateWallexPrice(depth *wallex.OrderBook, volume decimal.Decimal) (decimal.Decimal, error) {
 	if volume.LessThanOrEqual(decimal.Zero) {
 		return decimal.Zero, errors.New("volume must be positive")
 	}

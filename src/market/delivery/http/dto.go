@@ -22,10 +22,12 @@ import (
 // MarketDto describes a tradable pair
 // swagger:model MarketDto
 type MarketDto struct {
+	ID                       uint   `json:"id"`
 	ExchangeName             string `json:"exchange_name" example:"ompfinex"`
 	MarketName               string `json:"market_name" example:"BTC/USDT"`
 	IsActive                 bool   `json:"is_active" example:"true"`
 	ExchangeMarketIdentifier string `json:"exchange_market_identifier" example:"BTC/USDT"`
+	MegaMarketID             uint   `json:"mega_market_id" example:"1"`
 }
 
 // ListPairsResponse lists pairs
@@ -39,10 +41,12 @@ type ListPairsResponse struct {
 
 func MarketDtoFromDomain(m domain.Market) MarketDto {
 	return MarketDto{
+		ID:                       m.ID,
 		ExchangeName:             m.ExchangeName,
 		MarketName:               m.MarketName,
 		IsActive:                 m.IsActive,
 		ExchangeMarketIdentifier: m.ExchangeMarketIdentifier,
+		MegaMarketID:             m.MegaMarketID,
 	}
 }
 
@@ -70,6 +74,13 @@ type GetBestExchangePriceByVolumeRequestBody struct {
 // CreateQuoteResponseBody returns a quote
 // swagger:model CreateQuoteResponseBody
 type GetBestExchangePriceByVolumeResponse struct {
-	Price        decimal.Decimal `json:"price" example:"100.0"`
-	ExchangeName string          `json:"exchange_name" example:"ompfinex"`
+	Price  decimal.Decimal `json:"price" example:"100.0"`
+	Market MarketDto       `json:"market"`
+}
+
+func GetBestExchangePriceByVolumeResponseFromDomain(m *domain.Market, price decimal.Decimal) GetBestExchangePriceByVolumeResponse {
+	return GetBestExchangePriceByVolumeResponse{
+		Price:  price,
+		Market: MarketDtoFromDomain(*m),
+	}
 }
