@@ -6,6 +6,24 @@ import (
 	"github.com/shopspring/decimal"
 )
 
+type OrderUsecase interface {
+	PlaceMarketOrder(ctx context.Context, marketId uint, volume decimal.Decimal, isBuy bool) (string, error)
+	SubmitOrder(ctx context.Context, o *Order) (*Order, error)
+	FetchPendingOrders(ctx context.Context) error
+	FetchSuccessDebitOrders(ctx context.Context) error
+	FetchFailedTreasuryCreditOrders(ctx context.Context) error
+}
+type OrderRepository interface {
+	SaveOrder(ctx context.Context, o *Order) (*Order, error)
+	GetOrderByID(ctx context.Context, id uint) (*Order, error)
+	UpdateOrder(ctx context.Context, o *Order) error
+	SoftDelete(ctx context.Context, id uint) error
+	SoftDeleteAll(ctx context.Context) error
+	GetOrdersByUserId(ctx context.Context, userId string) ([]Order, error)
+	GetOrdersByStatus(ctx context.Context, status OrderStatus) ([]Order, error)
+	ChangeStatusByIds(ctx context.Context, ids []uint, status OrderStatus) error
+}
+
 // QuoteRepository persistence port
 type QuoteRepository interface {
 	Save(ctx context.Context, q *Quote) error

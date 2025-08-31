@@ -104,40 +104,6 @@ const docTemplate = `{
                     }
                 }
             }
-        },
-        "/swap/pairs": {
-            "get": {
-                "description": "Get all available trading pairs",
-                "consumes": [
-                    "application/json"
-                ],
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "swap"
-                ],
-                "summary": "List available swap pairs",
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "$ref": "#/definitions/http.ListPairsResponseBody"
-                        }
-                    },
-                    "500": {
-                        "description": "Internal Server Error",
-                        "schema": {
-                            "type": "object",
-                            "properties": {
-                                "error": {
-                                    "type": "string"
-                                }
-                            }
-                        }
-                    }
-                }
-            }
         }
     },
     "definitions": {
@@ -169,24 +135,12 @@ const docTemplate = `{
         "http.GetBestExchangePriceByVolumeResponse": {
             "type": "object",
             "properties": {
-                "exchange_name": {
-                    "type": "string",
-                    "example": "ompfinex"
+                "market": {
+                    "$ref": "#/definitions/http.MarketDto"
                 },
                 "price": {
                     "type": "number",
                     "example": 100
-                }
-            }
-        },
-        "http.ListPairsResponseBody": {
-            "type": "object",
-            "properties": {
-                "pairs": {
-                    "type": "array",
-                    "items": {
-                        "$ref": "#/definitions/http.PairDTO"
-                    }
                 }
             }
         },
@@ -201,6 +155,9 @@ const docTemplate = `{
                     "type": "string",
                     "example": "ompfinex"
                 },
+                "id": {
+                    "type": "integer"
+                },
                 "is_active": {
                     "type": "boolean",
                     "example": true
@@ -208,27 +165,10 @@ const docTemplate = `{
                 "market_name": {
                     "type": "string",
                     "example": "BTC/USDT"
-                }
-            }
-        },
-        "http.PairDTO": {
-            "type": "object",
-            "properties": {
-                "from_network": {
-                    "type": "string",
-                    "example": "sepolia"
                 },
-                "from_token": {
-                    "type": "string",
-                    "example": "USDT"
-                },
-                "to_network": {
-                    "type": "string",
-                    "example": "mumbai"
-                },
-                "to_token": {
-                    "type": "string",
-                    "example": "MATIC"
+                "mega_market_id": {
+                    "type": "integer",
+                    "example": 1
                 }
             }
         }

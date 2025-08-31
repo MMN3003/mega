@@ -6,7 +6,7 @@ import (
 	"errors"
 
 	"github.com/MMN3003/mega/src/logger"
-	"github.com/MMN3003/mega/src/swap/domain"
+	"github.com/MMN3003/mega/src/order/domain"
 	"github.com/shopspring/decimal"
 )
 

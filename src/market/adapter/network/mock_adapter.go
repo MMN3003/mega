@@ -7,7 +7,7 @@ import (
 	"sync"
 
 	"github.com/MMN3003/mega/src/logger"
-	"github.com/MMN3003/mega/src/swap/domain"
+	"github.com/MMN3003/mega/src/order/domain"
 	"github.com/google/uuid"
 	"github.com/shopspring/decimal"
 )

@@ -18,19 +18,11 @@ definitions:
     type: object
   http.GetBestExchangePriceByVolumeResponse:
     properties:
-      exchange_name:
-        example: ompfinex
-        type: string
+      market:
+        $ref: '#/definitions/http.MarketDto'
       price:
         example: 100
         type: number
-    type: object
-  http.ListPairsResponseBody:
-    properties:
-      pairs:
-        items:
-          $ref: '#/definitions/http.PairDTO'
-        type: array
     type: object
   http.MarketDto:
     properties:
@@ -40,27 +32,17 @@ definitions:
       exchange_name:
         example: ompfinex
         type: string
+      id:
+        type: integer
       is_active:
         example: true
         type: boolean
       market_name:
         example: BTC/USDT
         type: string
-    type: object
-  http.PairDTO:
-    properties:
-      from_network:
-        example: sepolia
-        type: string
-      from_token:
-        example: USDT
-        type: string
-      to_network:
-        example: mumbai
-        type: string
-      to_token:
-        example: MATIC
-        type: string
+      mega_market_id:
+        example: 1
+        type: integer
     type: object
 info:
   contact: {}
@@ -123,26 +105,4 @@ paths:
       summary: List available market
       tags:
       - market
-  /swap/pairs:
-    get:
-      consumes:
-      - application/json
-      description: Get all available trading pairs
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            $ref: '#/definitions/http.ListPairsResponseBody'
-        "500":
-          description: Internal Server Error
-          schema:
-            properties:
-              error:
-                type: string
-            type: object
-      summary: List available swap pairs
-      tags:
-      - swap
 swagger: "2.0"
