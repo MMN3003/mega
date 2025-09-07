@@ -23,6 +23,15 @@ run:
 	@echo ">> Running $(APP_NAME)..."
 	go run $(CMD_DIR)
 
+
+## Run locally
+.PHONY: run-mem
+run-mem:
+	@echo ">> Generating swagger docs..."
+	swag init -g $(CMD_DIR)/main.go -o ./docs
+	@echo ">> Running $(APP_NAME)..."
+	go run -gcflags="all=-l -N"  $(CMD_DIR)
+
 ## Run with hot reload (requires air)
 .PHONY: dev
 dev:
