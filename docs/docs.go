@@ -197,9 +197,6 @@ const docTemplate = `{
         }
     },
     "definitions": {
-        "domain.OrderSignature": {
-            "type": "object"
-        },
         "domain.OrderStatus": {
             "type": "string",
             "enum": [
@@ -337,8 +334,60 @@ const docTemplate = `{
                 }
             }
         },
+        "http.OrderSignaturePayload": {
+            "type": "object",
+            "properties": {
+                "r": {
+                    "type": "string"
+                },
+                "s": {
+                    "type": "string"
+                },
+                "v": {
+                    "type": "integer"
+                }
+            }
+        },
         "http.SubmitOrderRequestBody": {
-            "type": "object"
+            "type": "object",
+            "properties": {
+                "deadline": {
+                    "type": "integer"
+                },
+                "destination_address": {
+                    "type": "string"
+                },
+                "from_network": {
+                    "type": "string"
+                },
+                "is_buy": {
+                    "type": "boolean"
+                },
+                "market_id": {
+                    "type": "integer"
+                },
+                "price": {
+                    "type": "number"
+                },
+                "signature": {
+                    "$ref": "#/definitions/http.OrderSignaturePayload"
+                },
+                "to_network": {
+                    "type": "string"
+                },
+                "token_address": {
+                    "type": "string"
+                },
+                "user_address": {
+                    "type": "string"
+                },
+                "user_id": {
+                    "type": "string"
+                },
+                "volume": {
+                    "type": "number"
+                }
+            }
         },
         "http.SubmitOrderResponse": {
             "type": "object",
@@ -383,7 +432,7 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "signature": {
-                    "$ref": "#/definitions/domain.OrderSignature"
+                    "$ref": "#/definitions/http.OrderSignaturePayload"
                 },
                 "slipage_percentage": {
                     "type": "number"

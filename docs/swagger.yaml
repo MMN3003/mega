@@ -1,6 +1,4 @@
 definitions:
-  domain.OrderSignature:
-    type: object
   domain.OrderStatus:
     enum:
     - PENDING
@@ -104,7 +102,41 @@ definitions:
         example: BTC
         type: string
     type: object
+  http.OrderSignaturePayload:
+    properties:
+      r:
+        type: string
+      s:
+        type: string
+      v:
+        type: integer
+    type: object
   http.SubmitOrderRequestBody:
+    properties:
+      deadline:
+        type: integer
+      destination_address:
+        type: string
+      from_network:
+        type: string
+      is_buy:
+        type: boolean
+      market_id:
+        type: integer
+      price:
+        type: number
+      signature:
+        $ref: '#/definitions/http.OrderSignaturePayload'
+      to_network:
+        type: string
+      token_address:
+        type: string
+      user_address:
+        type: string
+      user_id:
+        type: string
+      volume:
+        type: number
     type: object
   http.SubmitOrderResponse:
     properties:
@@ -135,7 +167,7 @@ definitions:
       release_tx_hash:
         type: string
       signature:
-        $ref: '#/definitions/domain.OrderSignature'
+        $ref: '#/definitions/http.OrderSignaturePayload'
       slipage_percentage:
         type: number
       source_token_symbol:

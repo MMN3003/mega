@@ -18,8 +18,15 @@ import (
 	"time"
 
 	"github.com/MMN3003/mega/src/order/domain"
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/shopspring/decimal"
 )
+
+type OrderSignaturePayload struct {
+	V uint8  `json:"v"`
+	R string `json:"r"`
+	S string `json:"s"`
+}
 
 // SubmitOrderRequestBody is the payload to submit a new order
 // swagger:model SubmitOrderRequestBody
@@ -34,7 +41,7 @@ type SubmitOrderRequestBody struct {
 	Deadline           int64                 `json:"deadline"`
 	DestinationAddress *string               `json:"destination_address"`
 	TokenAddress       string                `json:"token_address"`
-	Signature          domain.OrderSignature `json:"signature"`
+	Signature          OrderSignaturePayload `json:"signature"`
 	UserId             string                `json:"user_id"`
 }
 
@@ -50,8 +57,12 @@ func (c SubmitOrderRequestBody) ToOrder() *domain.Order {
 		Deadline:           c.Deadline,
 		DestinationAddress: c.DestinationAddress,
 		TokenAddress:       c.TokenAddress,
-		Signature:          c.Signature,
-		UserId:             c.UserId,
+		Signature: domain.OrderSignature{
+			V: c.Signature.V,
+			R: common.HexToHash(c.Signature.R),
+			S: common.HexToHash(c.Signature.S),
+		},
+		UserId: c.UserId,
 	}
 }
 
@@ -75,7 +86,7 @@ type SubmitOrderResponse struct {
 	Deadline               int64                 `json:"deadline"`
 	DestinationAddress     *string               `json:"destination_address"`
 	TokenAddress           string                `json:"token_address"`
-	Signature              domain.OrderSignature `json:"signature"`
+	Signature              OrderSignaturePayload `json:"signature"`
 	DepositTxHash          *string               `json:"deposit_tx_hash"`
 	ReleaseTxHash          *string               `json:"release_tx_hash"`
 	UserId                 string                `json:"user_id"`
@@ -85,24 +96,28 @@ type SubmitOrderResponse struct {
 
 func fromOrderDomain(order *domain.Order) SubmitOrderResponse {
 	return SubmitOrderResponse{
-		ID:                     order.ID,
-		Status:                 order.Status,
-		CreatedAt:              order.CreatedAt,
-		UpdatedAt:              order.UpdatedAt,
-		Volume:                 order.Volume,
-		Price:                  order.Price,
-		FromNetwork:            order.FromNetwork,
-		ToNetwork:              order.ToNetwork,
-		UserAddress:            order.UserAddress,
-		MarketID:               order.MarketID,
-		MegaMarketID:           order.MegaMarketID,
-		SlipagePercentage:      order.SlipagePercentage,
-		IsBuy:                  order.IsBuy,
-		ContractAddress:        order.ContractAddress,
-		Deadline:               order.Deadline,
-		DestinationAddress:     order.DestinationAddress,
-		TokenAddress:           order.TokenAddress,
-		Signature:              order.Signature,
+		ID:                 order.ID,
+		Status:             order.Status,
+		CreatedAt:          order.CreatedAt,
+		UpdatedAt:          order.UpdatedAt,
+		Volume:             order.Volume,
+		Price:              order.Price,
+		FromNetwork:        order.FromNetwork,
+		ToNetwork:          order.ToNetwork,
+		UserAddress:        order.UserAddress,
+		MarketID:           order.MarketID,
+		MegaMarketID:       order.MegaMarketID,
+		SlipagePercentage:  order.SlipagePercentage,
+		IsBuy:              order.IsBuy,
+		ContractAddress:    order.ContractAddress,
+		Deadline:           order.Deadline,
+		DestinationAddress: order.DestinationAddress,
+		TokenAddress:       order.TokenAddress,
+		Signature: OrderSignaturePayload{
+			V: order.Signature.V,
+			R: order.Signature.R.Hex(),
+			S: order.Signature.S.Hex(),
+		},
 		DepositTxHash:          order.DepositTxHash,
 		ReleaseTxHash:          order.ReleaseTxHash,
 		UserId:                 order.UserId,
