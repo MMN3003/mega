@@ -1,15 +1,50 @@
 definitions:
+  domain.OrderSignature:
+    type: object
+  domain.OrderStatus:
+    enum:
+    - PENDING
+    - USER_DEBIT_IN_PROGRESS
+    - USER_DEBIT_SUCCESS
+    - MARKET_USER_ORDER_IN_PROGRESS
+    - MARKET_USER_ORDER_SUCCESS
+    - MARKET_USER_ORDER_FAILED
+    - FAILED_USER_DEBIT
+    - REFUND_USER_ORDER
+    - REFUND_USER_ORDER_IN_PROGRESS
+    - REFUND_USER_ORDER_SUCCESS
+    - REFUND_USER_ORDER_FAILED
+    - TREASURY_CREDIT_IN_PROGRESS
+    - COMPLETED
+    type: string
+    x-enum-varnames:
+    - OrderPending
+    - OrderUserDebitInProgress
+    - OrderUserDebitSuccess
+    - OrderMarketUserOrderInProgress
+    - OrderMarketUserOrderSuccess
+    - OrderMarketUserOrderFailed
+    - OrderFailedUserDebit
+    - OrderRefundUserOrder
+    - OrderRefundUserOrderInProgress
+    - OrderRefundUserOrderSuccess
+    - OrderRefundUserOrderFailed
+    - OrderTreasuryCreditInProgress
+    - OrderCompleted
   http.FetchAndUpdateMarketsResponse:
     properties:
       markets:
         items:
-          $ref: '#/definitions/http.MarketDto'
+          $ref: '#/definitions/http.MarketAndMegaMarketDto'
         type: array
     type: object
   http.GetBestExchangePriceByVolumeRequestBody:
     properties:
+      is_buy:
+        example: true
+        type: boolean
       mega_market_id:
-        example: 1
+        example: 4
         type: integer
       volume:
         description: decimal string
@@ -19,13 +54,16 @@ definitions:
   http.GetBestExchangePriceByVolumeResponse:
     properties:
       market:
-        $ref: '#/definitions/http.MarketDto'
+        $ref: '#/definitions/http.MarketAndMegaMarketDto'
       price:
         example: 100
         type: number
     type: object
-  http.MarketDto:
+  http.MarketAndMegaMarketDto:
     properties:
+      exchange_market_fee_percentage:
+        example: "0.01"
+        type: string
       exchange_market_identifier:
         example: BTC/USDT
         type: string
@@ -40,9 +78,82 @@ definitions:
       market_name:
         example: BTC/USDT
         type: string
+      mega_market:
+        $ref: '#/definitions/http.MegaMarketDto'
       mega_market_id:
         example: 1
         type: integer
+    type: object
+  http.MegaMarketDto:
+    properties:
+      destination_token_symbol:
+        example: USDT
+        type: string
+      exchange_market_names:
+        example: BTC/USDT
+        type: string
+      fee_percentage:
+        example: 0.01
+        type: number
+      id:
+        type: integer
+      is_active:
+        example: true
+        type: boolean
+      source_token_symbol:
+        example: BTC
+        type: string
+    type: object
+  http.SubmitOrderRequestBody:
+    type: object
+  http.SubmitOrderResponse:
+    properties:
+      contract_address:
+        type: string
+      created_at:
+        type: string
+      deadline:
+        type: integer
+      deposit_tx_hash:
+        type: string
+      destination_address:
+        type: string
+      destination_token_symbol:
+        type: string
+      from_network:
+        type: string
+      id:
+        type: integer
+      is_buy:
+        type: boolean
+      market_id:
+        type: integer
+      mega_market_id:
+        type: integer
+      price:
+        type: number
+      release_tx_hash:
+        type: string
+      signature:
+        $ref: '#/definitions/domain.OrderSignature'
+      slipage_percentage:
+        type: number
+      source_token_symbol:
+        type: string
+      status:
+        $ref: '#/definitions/domain.OrderStatus'
+      to_network:
+        type: string
+      token_address:
+        type: string
+      updated_at:
+        type: string
+      user_address:
+        type: string
+      user_id:
+        type: string
+      volume:
+        type: number
     type: object
 info:
   contact: {}
@@ -105,4 +216,62 @@ paths:
       summary: List available market
       tags:
       - market
+  /order/:id:
+    get:
+      consumes:
+      - application/json
+      description: Get order by id
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/http.FetchAndUpdateMarketsResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            properties:
+              error:
+                type: string
+            type: object
+      summary: Get order by id
+      tags:
+      - order
+  /order/submit:
+    post:
+      consumes:
+      - application/json
+      description: Submit a new order
+      parameters:
+      - description: Request body
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/http.SubmitOrderRequestBody'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/http.SubmitOrderResponse'
+        "400":
+          description: Bad Request
+          schema:
+            properties:
+              error:
+                type: string
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            properties:
+              error:
+                type: string
+            type: object
+      summary: Submit order
+      tags:
+      - order
 swagger: "2.0"

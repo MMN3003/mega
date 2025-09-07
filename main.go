@@ -2,12 +2,14 @@ package main
 
 import (
 	"context"
+	"math/big"
 	"net/http"
 	"os"
 	"os/signal"
 	"syscall"
 	"time"
 
+	"github.com/MMN3003/mega/src/Infrastructure/ethereum"
 	"github.com/MMN3003/mega/src/config"
 	cron_repo "github.com/MMN3003/mega/src/cron/repository"
 	cron_usecase "github.com/MMN3003/mega/src/cron/usecase"
@@ -53,8 +55,22 @@ func main() {
 		logg.Fatalf("Failed to get generic DB handle: %v", err)
 	}
 	defer sqlDB.Close()
+	config := ethereum.Config{
+		RPCURL:          cfg.Ethereum.RPCURL,
+		PrivateKey:      cfg.Ethereum.AdminKey,
+		PhoenixContract: cfg.Ethereum.PhoenixContractAddress,
+		ChainID:         big.NewInt(11155111), // Sepolia
 
-	// Connection pool tuning
+	}
+
+	// Create Ethereum client
+	ctx := context.Background()
+	client, err := ethereum.NewEthereumClient(ctx, config)
+	if err != nil {
+		logg.Fatalf("Failed to create Ethereum client: %v", err)
+	}
+	defer client.Close()
+
 	sqlDB.SetMaxOpenConns(20)
 	sqlDB.SetMaxIdleConns(5)
 	sqlDB.SetConnMaxLifetime(10 * time.Minute)
@@ -67,7 +83,7 @@ func main() {
 	// --- services ---
 	marketSvc := market.NewService(marketRepo, megaMarketRepo, logg, cfg)
 	cronSvc := cron_usecase.NewService(cronRepo, logg)
-	orderSvc := order_usecase.NewService(orderRepo, logg, cfg)
+	orderSvc := order_usecase.NewService(orderRepo, logg, cfg, client)
 	// --- adapters ---
 	marketAdapter := order_market_adapter.NewMarketPort(marketSvc)
 	cronAdapter := order_cron_adapter.NewCronPort(cronSvc)

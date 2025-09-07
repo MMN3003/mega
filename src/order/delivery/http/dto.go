@@ -17,8 +17,99 @@ package http
 import (
 	"time"
 
+	"github.com/MMN3003/mega/src/order/domain"
 	"github.com/shopspring/decimal"
 )
+
+// SubmitOrderRequestBody is the payload to submit a new order
+// swagger:model SubmitOrderRequestBody
+type SubmitOrderRequestBody struct {
+	Volume             decimal.Decimal       `json:"volume"`
+	Price              decimal.Decimal       `json:"price"`
+	FromNetwork        string                `json:"from_network"`
+	ToNetwork          string                `json:"to_network"`
+	UserAddress        string                `json:"user_address"`
+	MarketID           uint                  `json:"market_id"`
+	IsBuy              bool                  `json:"is_buy"`
+	Deadline           int64                 `json:"deadline"`
+	DestinationAddress *string               `json:"destination_address"`
+	TokenAddress       string                `json:"token_address"`
+	Signature          domain.OrderSignature `json:"signature"`
+	UserId             string                `json:"user_id"`
+}
+
+func (c SubmitOrderRequestBody) ToOrder() *domain.Order {
+	return &domain.Order{
+		Volume:             c.Volume,
+		Price:              c.Price,
+		FromNetwork:        c.FromNetwork,
+		ToNetwork:          c.ToNetwork,
+		UserAddress:        c.UserAddress,
+		MarketID:           c.MarketID,
+		IsBuy:              c.IsBuy,
+		Deadline:           c.Deadline,
+		DestinationAddress: c.DestinationAddress,
+		TokenAddress:       c.TokenAddress,
+		Signature:          c.Signature,
+		UserId:             c.UserId,
+	}
+}
+
+// SubmitOrderResponse is the response to submit a new order
+// swagger:model SubmitOrderResponse
+type SubmitOrderResponse struct {
+	ID                     uint                  `json:"id"`
+	Status                 domain.OrderStatus    `json:"status"`
+	CreatedAt              time.Time             `json:"created_at"`
+	UpdatedAt              time.Time             `json:"updated_at"`
+	Volume                 decimal.Decimal       `json:"volume"`
+	Price                  decimal.Decimal       `json:"price"`
+	FromNetwork            string                `json:"from_network"`
+	ToNetwork              string                `json:"to_network"`
+	UserAddress            string                `json:"user_address"`
+	MarketID               uint                  `json:"market_id"`
+	MegaMarketID           uint                  `json:"mega_market_id"`
+	SlipagePercentage      decimal.Decimal       `json:"slipage_percentage"`
+	IsBuy                  bool                  `json:"is_buy"`
+	ContractAddress        string                `json:"contract_address"`
+	Deadline               int64                 `json:"deadline"`
+	DestinationAddress     *string               `json:"destination_address"`
+	TokenAddress           string                `json:"token_address"`
+	Signature              domain.OrderSignature `json:"signature"`
+	DepositTxHash          *string               `json:"deposit_tx_hash"`
+	ReleaseTxHash          *string               `json:"release_tx_hash"`
+	UserId                 string                `json:"user_id"`
+	DestinationTokenSymbol string                `json:"destination_token_symbol"`
+	SourceTokenSymbol      string                `json:"source_token_symbol"`
+}
+
+func fromOrderDomain(order *domain.Order) SubmitOrderResponse {
+	return SubmitOrderResponse{
+		ID:                     order.ID,
+		Status:                 order.Status,
+		CreatedAt:              order.CreatedAt,
+		UpdatedAt:              order.UpdatedAt,
+		Volume:                 order.Volume,
+		Price:                  order.Price,
+		FromNetwork:            order.FromNetwork,
+		ToNetwork:              order.ToNetwork,
+		UserAddress:            order.UserAddress,
+		MarketID:               order.MarketID,
+		MegaMarketID:           order.MegaMarketID,
+		SlipagePercentage:      order.SlipagePercentage,
+		IsBuy:                  order.IsBuy,
+		ContractAddress:        order.ContractAddress,
+		Deadline:               order.Deadline,
+		DestinationAddress:     order.DestinationAddress,
+		TokenAddress:           order.TokenAddress,
+		Signature:              order.Signature,
+		DepositTxHash:          order.DepositTxHash,
+		ReleaseTxHash:          order.ReleaseTxHash,
+		UserId:                 order.UserId,
+		DestinationTokenSymbol: order.DestinationTokenSymbol,
+		SourceTokenSymbol:      order.SourceTokenSymbol,
+	}
+}
 
 // PairDTO describes a tradable pair
 // swagger:model PairDTO

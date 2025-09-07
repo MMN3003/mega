@@ -40,14 +40,14 @@ func (h *Handler) RegisterRoutes(r *gin.Engine) {
 //	@Router			/markets [get]
 func (h *Handler) ListPairs(c *gin.Context) {
 	ctx := c.Request.Context()
-	markets, err := h.service.FetchAndUpdateMarkets(ctx)
+	markets, megaMarketMap, err := h.service.FetchAndUpdateMarkets(ctx)
 	if err != nil {
 		h.logger.Errorf("ListPairs err: %v", err)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
 		return
 	}
 
-	c.JSON(http.StatusOK, FetchAndUpdateMarketsResponseFromDomain(markets))
+	c.JSON(http.StatusOK, FetchAndUpdateMarketsResponseFromDomain(markets, megaMarketMap))
 }
 
 // GetBestExchangePriceByVolume godoc
@@ -81,11 +81,11 @@ func (h *Handler) GetBestExchangePriceByVolume(c *gin.Context) {
 		return
 	}
 
-	price, market, err := h.service.GetBestExchangePriceByVolume(ctx, megaMarketId, volume)
+	price, market, megaMarket, err := h.service.GetBestExchangePriceByVolume(ctx, megaMarketId, volume, req.IsBuy)
 	if err != nil {
 		h.logger.Errorf("GetBestExchangePriceByVolume err: %v", err)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
 		return
 	}
-	c.JSON(http.StatusOK, GetBestExchangePriceByVolumeResponseFromDomain(market, price))
+	c.JSON(http.StatusOK, GetBestExchangePriceByVolumeResponseFromDomain(market, megaMarket, price))
 }

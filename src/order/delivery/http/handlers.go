@@ -3,6 +3,7 @@ package http
 import (
 	"encoding/json"
 	"net/http"
+	"strconv"
 
 	"github.com/MMN3003/mega/src/logger"
 	"github.com/MMN3003/mega/src/order/usecase"
@@ -11,16 +12,16 @@ import (
 
 // Handler binds usecase + logger
 type Handler struct {
-	swapSvc *usecase.Service
+	service *usecase.Service
 	logger  *logger.Logger
 }
 
 func NewHandler(s *usecase.Service, l *logger.Logger) *Handler {
-	return &Handler{swapSvc: s, logger: l}
+	return &Handler{service: s, logger: l}
 }
 func (h *Handler) RegisterRoutes(r *gin.Engine) {
-	// r.GET("/markets", h.ListPairs)
-	// r.PUT("/market/best-price", h.GetBestExchangePriceByVolume)
+	r.GET("/:id", h.GetOrderById)
+	r.POST("/submit", h.SubmitOrder)
 	// r.GET("/health", func(c *gin.Context) {
 	// 	c.JSON(http.StatusOK, gin.H{"status": "ok"})
 	// })
@@ -32,36 +33,63 @@ func writeJSON(w http.ResponseWriter, status int, v interface{}) {
 	_ = json.NewEncoder(w).Encode(v)
 }
 
-// // ListPairs godoc
-// //
-// //	@Summary		List available swap pairs
-// //	@Description	Get all available trading pairs
-// //	@Tags			swap
-// //	@Accept			json
-// //	@Produce		json
-// //	@Success		200	{object}	http.ListPairsResponseBody
-// //	@Failure		500	{object}	object{error=string}
-// //	@Router			/swap/pairs [get]
-// func (h *Handler) ListPairs(w http.ResponseWriter, r *http.Request) {
-// 	ctx := r.Context()
-// 	pairs, err := h.swapSvc.ListPairs(ctx)
-// 	if err != nil {
-// 		h.logger.Errorf("ListPairs err: %v", err)
-// 		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "internal server error"})
-// 		return
-// 	}
+// GetOrderById godoc
+//
+//	@Summary		Get order by id
+//	@Description	Get order by id
+//	@Tags			order
+//	@Accept			json
+//	@Produce		json
+//	@Success		200	{object}	http.FetchAndUpdateMarketsResponse
+//	@Failure		500	{object}	object{error=string}
+//	@Router			/order/:id [get]
+func (h *Handler) GetOrderById(c *gin.Context) {
+	ctx := c.Request.Context()
+	id, err := strconv.ParseUint(c.Param("id"), 10, 64)
+	if err != nil {
+		h.logger.Errorf("GetOrderById err: %v", err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
+		return
+	}
+	order, err := h.service.GetOrderById(ctx, uint(id))
+	if err != nil {
+		h.logger.Errorf("GetOrderById err: %v", err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
+		return
+	}
+	c.JSON(http.StatusOK, fromOrderDomain(order))
+}
 
-// 	dtoPairs := make([]PairDTO, len(pairs))
-// 	for i, p := range pairs {
-// 		dtoPairs[i] = PairDTO{
-// 			FromNetwork: p["from_network"],
-// 			FromToken:   p["from_token"],
-// 			ToNetwork:   p["to_network"],
-// 			ToToken:     p["to_token"],
-// 		}
-// 	}
-// 	writeJSON(w, http.StatusOK, ListPairsResponseBody{Pairs: dtoPairs})
-// }
+// SubmitOrder godoc
+//
+//	@Summary		Submit order
+//	@Description	Submit a new order
+//	@Tags			order
+//	@Accept			json
+//	@Produce		json
+//	@Param			request	body		SubmitOrderRequestBody	true	"Request body"
+//	@Success		200	{object}	SubmitOrderResponse
+//	@Failure		400	{object}	object{error=string}
+//	@Failure		500	{object}	object{error=string}
+//	@Router			/order/submit [post]
+func (h *Handler) SubmitOrder(c *gin.Context) {
+	ctx := c.Request.Context()
+	// get data from body
+	var req SubmitOrderRequestBody
+	if err := c.ShouldBindJSON(&req); err != nil {
+		h.logger.Errorf("SubmitOrder err: %v", err)
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid request"})
+		return
+	}
+
+	order, err := h.service.SubmitOrder(ctx, req.ToOrder())
+	if err != nil {
+		h.logger.Errorf("SubmitOrder err: %v", err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
+		return
+	}
+	c.JSON(http.StatusOK, fromOrderDomain(order))
+}
 
 // // swagger:route POST /swap/quote swap createQuote
 // // Create a swap quote

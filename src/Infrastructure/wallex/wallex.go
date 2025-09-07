@@ -135,7 +135,12 @@ type OrderBook struct {
 
 // GetAllMarkets retrieves the list of all available markets
 func (c *Client) GetAllMarkets(ctx context.Context) ([]Market, error) {
-	result, err := doJSON[struct{ Markets []Market }](c, ctx, http.MethodGet, "/hector/web/v1/markets", nil, nil, "")
+	query := url.Values{}
+	// query.Set("size", fmt.Sprintf("%d", 200))
+	// query.Set("limit", fmt.Sprintf("%d", 200))
+	// query.Set("offset", fmt.Sprintf("%d", 0))
+	// query.Set("page", fmt.Sprintf("%d", 1))
+	result, err := doJSON[struct{ Markets []Market }](c, ctx, http.MethodGet, "/hector/web/v1/markets", query, nil, "")
 	if err != nil {
 		return nil, err
 	}

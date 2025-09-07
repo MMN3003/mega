@@ -6,6 +6,7 @@ import (
 
 	"github.com/MMN3003/mega/src/logger"
 	"github.com/MMN3003/mega/src/market/domain"
+	"github.com/shopspring/decimal"
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
 )
@@ -21,11 +22,12 @@ var _ domain.MarketRepository = (*Repo)(nil)
 type Market struct {
 	gorm.Model
 
-	ExchangeMarketIdentifier string `gorm:"not null;uniqueIndex:uidx_exchange_market"`
-	ExchangeName             string `gorm:"not null;uniqueIndex:uidx_exchange_market"`
-	MegaMarketID             uint   `gorm:"not null;index:idx_mega_market"`
-	MarketName               string `gorm:"not null;index:idx_market"`
-	IsActive                 bool   `gorm:"not null;default:true"`
+	ExchangeMarketIdentifier    string `gorm:"not null;uniqueIndex:uidx_exchange_market"`
+	ExchangeName                string `gorm:"not null;uniqueIndex:uidx_exchange_market"`
+	MegaMarketID                uint   `gorm:"not null;index:idx_mega_market"`
+	MarketName                  string `gorm:"not null;index:idx_market"`
+	IsActive                    bool   `gorm:"not null;default:true"`
+	ExchangeMarketFeePercentage decimal.Decimal
 }
 
 // ---------- REPO ----------
@@ -46,10 +48,11 @@ func NewRepo(db *gorm.DB, log *logger.Logger) *Repo {
 
 func (r *Repo) SaveMarket(ctx context.Context, m *domain.Market) error {
 	model := Market{
-		ExchangeMarketIdentifier: m.ExchangeMarketIdentifier,
-		ExchangeName:             m.ExchangeName,
-		MarketName:               m.MarketName,
-		IsActive:                 m.IsActive,
+		ExchangeMarketIdentifier:    m.ExchangeMarketIdentifier,
+		ExchangeName:                m.ExchangeName,
+		MarketName:                  m.MarketName,
+		IsActive:                    m.IsActive,
+		ExchangeMarketFeePercentage: m.ExchangeMarketFeePercentage,
 	}
 	return r.db.WithContext(ctx).Create(&model).Error
 }
@@ -69,10 +72,11 @@ func (r *Repo) UpdateMarket(ctx context.Context, m *domain.Market) error {
 	return r.db.WithContext(ctx).Model(&Market{}).
 		Where("id = ?", m.ID).
 		Updates(Market{
-			ExchangeMarketIdentifier: m.ExchangeMarketIdentifier,
-			ExchangeName:             m.ExchangeName,
-			MarketName:               m.MarketName,
-			IsActive:                 m.IsActive,
+			ExchangeMarketIdentifier:    m.ExchangeMarketIdentifier,
+			ExchangeName:                m.ExchangeName,
+			MarketName:                  m.MarketName,
+			IsActive:                    m.IsActive,
+			ExchangeMarketFeePercentage: m.ExchangeMarketFeePercentage,
 		}).Error
 }
 
@@ -124,11 +128,12 @@ func (r *Repo) UpsertMarketsForExchange(ctx context.Context, markets []domain.Ma
 	var models []Market
 	for _, m := range markets {
 		models = append(models, Market{
-			ExchangeMarketIdentifier: m.ExchangeMarketIdentifier,
-			ExchangeName:             m.ExchangeName,
-			MarketName:               m.MarketName,
-			IsActive:                 m.IsActive,
-			MegaMarketID:             m.MegaMarketID,
+			ExchangeMarketIdentifier:    m.ExchangeMarketIdentifier,
+			ExchangeName:                m.ExchangeName,
+			MarketName:                  m.MarketName,
+			IsActive:                    m.IsActive,
+			MegaMarketID:                m.MegaMarketID,
+			ExchangeMarketFeePercentage: m.ExchangeMarketFeePercentage,
 		})
 	}
 
@@ -138,7 +143,7 @@ func (r *Repo) UpsertMarketsForExchange(ctx context.Context, markets []domain.Ma
 		Clauses(
 			clause.OnConflict{
 				Columns:   []clause.Column{{Name: "exchange_market_identifier"}, {Name: "exchange_name"}},
-				DoUpdates: clause.AssignmentColumns([]string{"exchange_name", "is_active", "market_name", "updated_at", "deleted_at"}),
+				DoUpdates: clause.AssignmentColumns([]string{"exchange_name", "is_active", "market_name", "updated_at", "deleted_at", "exchange_market_fee_percentage"}),
 			},
 		).
 		Create(&models).Error; err != nil {
@@ -163,12 +168,13 @@ func (r *Repo) GetAllActiveMarkets(ctx context.Context) ([]domain.Market, error)
 
 func (r *Repo) toDomainMarket(m *Market) *domain.Market {
 	return &domain.Market{
-		ID:                       m.ID,
-		ExchangeMarketIdentifier: m.ExchangeMarketIdentifier,
-		ExchangeName:             m.ExchangeName,
-		MarketName:               m.MarketName,
-		IsActive:                 m.IsActive,
-		MegaMarketID:             m.MegaMarketID,
+		ID:                          m.ID,
+		ExchangeMarketIdentifier:    m.ExchangeMarketIdentifier,
+		ExchangeName:                m.ExchangeName,
+		MarketName:                  m.MarketName,
+		IsActive:                    m.IsActive,
+		MegaMarketID:                m.MegaMarketID,
+		ExchangeMarketFeePercentage: m.ExchangeMarketFeePercentage,
 	}
 }
 func (r *Repo) toDomainMarkets(ms []Market) []domain.Market {

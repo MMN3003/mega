@@ -6,6 +6,7 @@ import (
 
 	"github.com/MMN3003/mega/src/logger"
 	"github.com/MMN3003/mega/src/market/domain"
+	"github.com/shopspring/decimal"
 	"gorm.io/gorm"
 )
 
@@ -19,8 +20,12 @@ var _ domain.MegaMarketRepository = (*MegaMarketRepo)(nil)
 // DeletedAt gorm.DeletedAt `gorm:"index"`
 type MegaMarket struct {
 	gorm.Model
-	ExchangeMarketNames string
-	IsActive            bool `gorm:"not null;default:true"`
+	ExchangeMarketNames    string
+	IsActive               bool `gorm:"not null;default:true"`
+	FeePercentage          decimal.Decimal
+	SourceTokenSymbol      string
+	DestinationTokenSymbol string
+	SlipagePercentage      decimal.Decimal
 }
 
 // ---------- REPO ----------
@@ -44,8 +49,20 @@ func (r *MegaMarketRepo) Seed(ctx context.Context) error {
 	// Define your seed data
 	seedData := []MegaMarket{
 		{
-			ExchangeMarketNames: `["BTC/USDT","Bitcoin/Tether"]`,
-			IsActive:            true,
+			ExchangeMarketNames:    `["BTC/USDT","Bitcoin/Tether"]`,
+			IsActive:               true,
+			FeePercentage:          decimal.NewFromFloat(0.01), // TODO: change this
+			SourceTokenSymbol:      "BTC",
+			DestinationTokenSymbol: "USDT",
+			SlipagePercentage:      decimal.NewFromFloat(0.02),
+		},
+		{
+			ExchangeMarketNames:    `["DOGE/USDT","Dogecoin/Tether"]`,
+			IsActive:               true,
+			FeePercentage:          decimal.NewFromFloat(0.01), // TODO: change this
+			SourceTokenSymbol:      "DOGE",
+			DestinationTokenSymbol: "USDT",
+			SlipagePercentage:      decimal.NewFromFloat(0.02),
 		},
 	}
 
@@ -71,8 +88,12 @@ func NewMegaMarketRepo(db *gorm.DB, log *logger.Logger) *MegaMarketRepo {
 
 func (r *MegaMarketRepo) SaveMegaMarket(ctx context.Context, m *domain.MegaMarket) error {
 	model := MegaMarket{
-		ExchangeMarketNames: m.ExchangeMarketNames,
-		IsActive:            m.IsActive,
+		ExchangeMarketNames:    m.ExchangeMarketNames,
+		IsActive:               m.IsActive,
+		FeePercentage:          m.FeePercentage,
+		SourceTokenSymbol:      m.SourceTokenSymbol,
+		DestinationTokenSymbol: m.DestinationTokenSymbol,
+		SlipagePercentage:      m.SlipagePercentage,
 	}
 	return r.db.WithContext(ctx).Create(&model).Error
 }
@@ -104,15 +125,19 @@ func (r *MegaMarketRepo) UpdateMegaMarket(ctx context.Context, m *domain.MegaMar
 	return r.db.WithContext(ctx).Model(&MegaMarket{}).
 		Where("id = ?", m.ID).
 		Updates(MegaMarket{
-			ExchangeMarketNames: m.ExchangeMarketNames,
-			IsActive:            m.IsActive,
+			ExchangeMarketNames:    m.ExchangeMarketNames,
+			IsActive:               m.IsActive,
+			FeePercentage:          m.FeePercentage,
+			SourceTokenSymbol:      m.SourceTokenSymbol,
+			DestinationTokenSymbol: m.DestinationTokenSymbol,
+			SlipagePercentage:      m.SlipagePercentage,
 		}).Error
 }
 
 func (r *MegaMarketRepo) SoftDelete(ctx context.Context, id uint) error {
 	return r.db.WithContext(ctx).Delete(&MegaMarket{}, id).Error
 }
-func (r *MegaMarketRepo) GetAllActiveMegaMarkets(ctx context.Context) ([]*domain.MegaMarket, error) {
+func (r *MegaMarketRepo) GetAllActiveMegaMarkets(ctx context.Context) ([]domain.MegaMarket, error) {
 	var ms []MegaMarket
 	if err := r.db.WithContext(ctx).Where("is_active = ?", true).Find(&ms).Error; err != nil {
 		return nil, err
@@ -122,17 +147,21 @@ func (r *MegaMarketRepo) GetAllActiveMegaMarkets(ctx context.Context) ([]*domain
 
 // ---------- HELPERS ----------
 
-func (r *MegaMarketRepo) toDomainMegaMarkets(ms []MegaMarket) []*domain.MegaMarket {
-	var dms []*domain.MegaMarket
+func (r *MegaMarketRepo) toDomainMegaMarkets(ms []MegaMarket) []domain.MegaMarket {
+	var dms []domain.MegaMarket
 	for _, m := range ms {
-		dms = append(dms, r.toDomainMegaMarket(&m))
+		dms = append(dms, *r.toDomainMegaMarket(&m))
 	}
 	return dms
 }
 func (r *MegaMarketRepo) toDomainMegaMarket(m *MegaMarket) *domain.MegaMarket {
 	return &domain.MegaMarket{
-		ID:                  m.ID,
-		ExchangeMarketNames: m.ExchangeMarketNames,
-		IsActive:            m.IsActive,
+		ID:                     m.ID,
+		ExchangeMarketNames:    m.ExchangeMarketNames,
+		IsActive:               m.IsActive,
+		FeePercentage:          m.FeePercentage,
+		SourceTokenSymbol:      m.SourceTokenSymbol,
+		DestinationTokenSymbol: m.DestinationTokenSymbol,
+		SlipagePercentage:      m.SlipagePercentage,
 	}
 }

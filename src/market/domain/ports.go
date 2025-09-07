@@ -28,15 +28,16 @@ type MegaMarketRepository interface {
 	UpdateMegaMarket(ctx context.Context, m *MegaMarket) error
 	SoftDeleteMegaMarket(ctx context.Context, id uint) error
 	GetActiveMegaMarketByID(ctx context.Context, id uint) (*MegaMarket, error)
-	GetAllActiveMegaMarkets(ctx context.Context) ([]*MegaMarket, error)
+	GetAllActiveMegaMarkets(ctx context.Context) ([]MegaMarket, error)
 }
 
 type MarketUseCase interface {
 	// Market lifecycle
 	UpsertMarketPairs(ctx context.Context, exchangeName string, markets []string) error
-	FetchAndUpdateMarkets(ctx context.Context) ([]Market, error)
+	FetchAndUpdateMarkets(ctx context.Context) ([]Market, map[uint]MegaMarket, error)
 	GetMarketByID(ctx context.Context, id uint) (*Market, error)
+	GetMegaMarketByID(ctx context.Context, id uint) (*MegaMarket, error)
 
 	// Pricing logic
-	GetBestExchangePriceByVolume(ctx context.Context, megaMarketId uint, volume decimal.Decimal) (decimal.Decimal, *Market, error)
+	GetBestExchangePriceByVolume(ctx context.Context, megaMarketId uint, volume decimal.Decimal, isBuy bool) (decimal.Decimal, *Market, *MegaMarket, error)
 }

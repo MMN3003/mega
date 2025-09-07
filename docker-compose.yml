@@ -24,26 +24,26 @@ services:
     networks:
       - swap-network
 
-  # swap-backend:
-  #   build:
-  #     context: .
-  #     dockerfile: Dockerfile
-  #   container_name: swap_backend
-  #   depends_on:
-  #     postgres:
-  #       condition: service_healthy
-  #   env_file:
-  #     - .env
-  #   environment:
-  #     APP_ENV: ${APP_ENV:-production}
-  #     DATABASE_URL: ${DATABASE_URL:-postgres://swap_user:swap_pass@postgres:5432/swap_db?sslmode=disable}
-  #     LISTEN_ADDR: ${LISTEN_ADDR:-:8080}
-  #   ports:
-  #     - "8080:8080"
-  #   networks:
-  #     - swap-network
-  #   restart: unless-stopped
-  #   command: ["/app/swap"]
+  swap-backend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: swap_backend
+    depends_on:
+      postgres:
+        condition: service_healthy
+    env_file:
+      - .env
+    environment:
+      APP_ENV: ${APP_ENV:-production}
+      DATABASE_URL: ${DATABASE_URL:-postgres://swap_user:swap_pass@postgres:5432/swap_db?sslmode=disable}
+      LISTEN_ADDR: ${LISTEN_ADDR:-:8080}
+    ports:
+      - "8080:8080"
+    networks:
+      - swap-network
+    restart: unless-stopped
+    command: ["/app/swap"]
 
 volumes:
   postgres_data:

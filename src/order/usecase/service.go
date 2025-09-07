@@ -3,14 +3,18 @@ package usecase
 import (
 	"context"
 	"errors"
+	"fmt"
+	"math/big"
 	"strconv"
 
+	"github.com/MMN3003/mega/src/Infrastructure/ethereum"
 	"github.com/MMN3003/mega/src/Infrastructure/ompfinex"
 	"github.com/MMN3003/mega/src/Infrastructure/wallex"
 	"github.com/MMN3003/mega/src/config"
 	"github.com/MMN3003/mega/src/logger"
 	"github.com/MMN3003/mega/src/order/adapter/market"
 	"github.com/MMN3003/mega/src/order/domain"
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/shopspring/decimal"
 )
 
@@ -21,10 +25,11 @@ type Service struct {
 	logger         *logger.Logger
 	ompfinexClient *ompfinex.Client
 	wallexClient   *wallex.Client
+	ethereumClient *ethereum.EthereumClient
 	marketAdapter  market.MarketAdapter
 }
 
-func NewService(o domain.OrderRepository, logg *logger.Logger, cfg *config.Config) *Service {
+func NewService(o domain.OrderRepository, logg *logger.Logger, cfg *config.Config, ethereumClient *ethereum.EthereumClient) *Service {
 	ompfinexClient, _ := ompfinex.NewClient(cfg.OMP.BaseURL,
 		ompfinex.WithAuthToken(cfg.OMP.Token),
 	)
@@ -36,6 +41,7 @@ func NewService(o domain.OrderRepository, logg *logger.Logger, cfg *config.Confi
 		logger:         logg,
 		ompfinexClient: ompfinexClient,
 		wallexClient:   wallexClient,
+		ethereumClient: ethereumClient,
 	}
 	return s
 }
@@ -81,7 +87,26 @@ func (s *Service) PlaceMarketOrder(ctx context.Context, marketId uint, volume de
 	}
 }
 func (s *Service) SubmitOrder(ctx context.Context, o *domain.Order) (*domain.Order, error) {
+	market, err := s.marketAdapter.GetMarketByID(ctx, o.MarketID)
+	if err != nil {
+		return nil, err
+	}
+	megaMarket, err := s.marketAdapter.GetMegaMarketByID(ctx, market.MegaMarketID)
+	if err != nil {
+		return nil, err
+	}
+
 	o.Status = domain.OrderPending
+	o.MegaMarketID = market.MegaMarketID
+	o.SlipagePercentage = megaMarket.SlipagePercentage
+	if o.IsBuy {
+		o.SourceTokenSymbol, o.DestinationTokenSymbol =
+			megaMarket.SourceTokenSymbol, megaMarket.DestinationTokenSymbol
+	} else {
+		o.SourceTokenSymbol, o.DestinationTokenSymbol =
+			megaMarket.DestinationTokenSymbol, megaMarket.SourceTokenSymbol
+	}
+
 	order, err := s.orderRepo.SaveOrder(ctx, o)
 	if err != nil {
 		return nil, err
@@ -107,12 +132,30 @@ func (s *Service) FetchPendingOrders(ctx context.Context) error {
 		order := o
 		go func(order domain.Order) {
 			s.logger.Infof("Order %d is pending", order.ID)
-			reciept := false
-			//TODO: run contrant story
-			if reciept {
-				err = s.orderRepo.ChangeStatusByIds(ctx, []uint{order.ID}, domain.OrderUserDebitSuccess)
-			} else {
+			receipt, err := s.ethereumClient.ExecuteTradeWithPermit(ctx, ethereum.Params{
+				TokenAddress: common.HexToAddress(order.TokenAddress),
+				Amount:       order.Volume.BigInt(),
+				Deadline:     big.NewInt(order.Deadline),
+				QuoteID:      fmt.Sprintf("%d", order.ID),
+				UserAddress:  common.HexToAddress(order.UserAddress),
+				Signature: struct {
+					V uint8
+					R common.Hash
+					S common.Hash
+				}{
+					V: order.Signature.V,
+					R: order.Signature.R,
+					S: order.Signature.S,
+				},
+			})
+			if err != nil {
+				s.logger.Errorf("ExecuteTradeWithPermit err: %v", err)
 				err = s.orderRepo.ChangeStatusByIds(ctx, []uint{order.ID}, domain.OrderFailedUserDebit)
+			}
+
+			if receipt.Status == 1 {
+				// TODO: store receipt
+				err = s.orderRepo.ChangeStatusByIds(ctx, []uint{order.ID}, domain.OrderUserDebitSuccess)
 			}
 			if err != nil {
 				s.logger.Errorf("ChangeStatusByIds err: %v", err)
@@ -132,7 +175,7 @@ func (s *Service) FetchSuccessDebitOrders(ctx context.Context) error {
 		s.logger.Infof("Order %d is pending", o.ID)
 		ids[i] = o.ID
 	}
-	err = s.orderRepo.ChangeStatusByIds(ctx, ids, domain.OrderTreasuryCreditInProgress)
+	err = s.orderRepo.ChangeStatusByIds(ctx, ids, domain.OrderMarketUserOrderInProgress)
 	if err != nil {
 		return err
 	}
@@ -140,12 +183,14 @@ func (s *Service) FetchSuccessDebitOrders(ctx context.Context) error {
 		order := o
 		go func(order domain.Order) {
 			s.logger.Infof("Order %d is pending", order.ID)
-			reciept := false
-			//TODO: send amount to user destination address
-			if reciept {
-				err = s.orderRepo.ChangeStatusByIds(ctx, []uint{order.ID}, domain.OrderCompleted)
-			} else {
-				err = s.orderRepo.ChangeStatusByIds(ctx, []uint{order.ID}, domain.OrderFailedTreasuryCredit)
+			exchangeOrderId, err := s.PlaceMarketOrder(ctx, order.MarketID, order.Volume, order.IsBuy)
+			if err != nil {
+				s.logger.Errorf("PlaceMarketOrder err: %v", err)
+				err = s.orderRepo.ChangeStatusByIds(ctx, []uint{order.ID}, domain.OrderMarketUserOrderFailed)
+			}
+			if exchangeOrderId != "" {
+				// store exchange order id
+				err = s.orderRepo.ChangeStatusByIds(ctx, []uint{order.ID}, domain.OrderMarketUserOrderSuccess)
 			}
 			if err != nil {
 				s.logger.Errorf("ChangeStatusByIds err: %v", err)
@@ -155,8 +200,8 @@ func (s *Service) FetchSuccessDebitOrders(ctx context.Context) error {
 
 	return nil
 }
-func (s *Service) FetchFailedTreasuryCreditOrders(ctx context.Context) error {
-	orders, err := s.orderRepo.GetOrdersByStatus(ctx, domain.OrderFailedTreasuryCredit)
+func (s *Service) FetchMarketUserOrderSuccessOrders(ctx context.Context) error {
+	orders, err := s.orderRepo.GetOrdersByStatus(ctx, domain.OrderMarketUserOrderSuccess)
 	if err != nil {
 		return err
 	}
@@ -165,7 +210,7 @@ func (s *Service) FetchFailedTreasuryCreditOrders(ctx context.Context) error {
 		s.logger.Infof("Order %d is pending", o.ID)
 		ids[i] = o.ID
 	}
-	err = s.orderRepo.ChangeStatusByIds(ctx, ids, domain.OrderRefundInProgress)
+	err = s.orderRepo.ChangeStatusByIds(ctx, ids, domain.OrderTreasuryCreditInProgress)
 	if err != nil {
 		return err
 	}
@@ -173,12 +218,18 @@ func (s *Service) FetchFailedTreasuryCreditOrders(ctx context.Context) error {
 		order := o
 		go func(order domain.Order) {
 			s.logger.Infof("Order %d is pending", order.ID)
-			reciept := false
-			//TODO: refund amount to user source
-			if reciept {
-				err = s.orderRepo.ChangeStatusByIds(ctx, []uint{order.ID}, domain.OrderRefundSuccess)
-			} else {
-				err = s.orderRepo.ChangeStatusByIds(ctx, []uint{order.ID}, domain.OrderFailedTreasuryCredit)
+			//TODO: minus our fee from destination price
+			receipt, err := s.ethereumClient.WithdrawTreasury(ctx, ethereum.WithdrawTreasuryParams{
+				RecipientAddress: *order.DestinationAddress,
+				Amount:           order.Price.String(),
+				TokenSymbol:      order.DestinationTokenSymbol,
+			})
+			if err != nil {
+				// store reciept log
+				err = s.orderRepo.ChangeStatusByIds(ctx, []uint{order.ID}, domain.OrderRefundUserOrder)
+			}
+			if receipt.Status == 1 {
+				err = s.orderRepo.ChangeStatusByIds(ctx, []uint{order.ID}, domain.OrderCompleted)
 			}
 			if err != nil {
 				s.logger.Errorf("ChangeStatusByIds err: %v", err)
@@ -188,136 +239,87 @@ func (s *Service) FetchFailedTreasuryCreditOrders(ctx context.Context) error {
 
 	return nil
 }
+func (s *Service) FetchFailedMarketUserOrderOrders(ctx context.Context) error {
+	orders, err := s.orderRepo.GetOrdersByStatus(ctx, domain.OrderMarketUserOrderFailed)
+	if err != nil {
+		return err
+	}
+	ids := make([]uint, len(orders))
+	for i, o := range orders {
+		s.logger.Infof("Order %d is pending", o.ID)
+		ids[i] = o.ID
+	}
+	err = s.orderRepo.ChangeStatusByIds(ctx, ids, domain.OrderMarketUserOrderInProgress)
+	if err != nil {
+		return err
+	}
+	for _, o := range orders {
+		order := o
+		go func(order domain.Order) {
+			s.logger.Infof("Order %d is pending", order.ID)
+			price, _, _, err := s.marketAdapter.GetBestExchangePriceByVolume(ctx, order.MegaMarketID, order.Volume, order.IsBuy)
 
-// func (s *Service) ListPairs(ctx context.Context) ([]map[string]string, error) {
-// 	out := []map[string]string{}
-// 	for netName, adapter := range s.adapters {
-// 		tokens, err := adapter.ListSupportedTokens(ctx)
-// 		if err != nil {
-// 			s.logger.Errorf("ListSupportedTokens err: %v", err)
-// 			continue
-// 		}
-// 		for _, t := range tokens {
-// 			for otherNet, otherAdapter := range s.adapters {
-// 				if otherNet == netName {
-// 					continue
-// 				}
-// 				otherTokens, _ := otherAdapter.ListSupportedTokens(ctx)
-// 				for _, ot := range otherTokens {
-// 					out = append(out, map[string]string{
-// 						"from_network": netName,
-// 						"from_token":   t.Symbol,
-// 						"to_network":   otherNet,
-// 						"to_token":     ot.Symbol,
-// 					})
-// 				}
-// 			}
-// 		}
-// 	}
-// 	return out, nil
-// }
+			if err != nil {
+				s.logger.Errorf("GetBestExchangePriceByVolume err: %v", err)
+				return
+			}
+			//  check slipage if slipage fail return the user money
+			if price.GreaterThan(order.Price.Add(order.Price.Mul(order.SlipagePercentage))) {
+				err = s.orderRepo.ChangeStatusByIds(ctx, []uint{order.ID}, domain.OrderRefundUserOrder)
+			} else {
+				err = s.orderRepo.ChangeStatusByIds(ctx, []uint{order.ID}, domain.OrderUserDebitSuccess) // try again
+			}
 
-// type CreateQuoteRequest struct {
-// 	FromNetwork string
-// 	FromToken   string
-// 	ToNetwork   string
-// 	ToToken     string
-// 	AmountIn    decimal.Decimal
-// 	UserAddress string
-// }
+			if err != nil {
+				s.logger.Errorf("ChangeStatusByIds err: %v", err)
+			}
+		}(order)
+	}
 
-// func (s *Service) CreateQuote(ctx context.Context, req CreateQuoteRequest) (*domain.Quote, error) {
-// 	_, ok := s.adapters[req.FromNetwork]
-// 	if !ok {
-// 		return nil, errors.New("unsupported from network")
-// 	}
-// 	toAdapter, ok := s.adapters[req.ToNetwork]
-// 	if !ok {
-// 		return nil, errors.New("unsupported to network")
-// 	}
+	return nil
+}
 
-// 	rateKey := fmt.Sprintf("%s|%s", req.FromToken, req.ToToken)
-// 	rate, ok := s.rates[rateKey]
-// 	if !ok {
-// 		return nil, errors.New("rate not available for pair")
-// 	}
-// 	amountOut := req.AmountIn.Mul(rate)
+func (s *Service) FetchReturnUserOrders(ctx context.Context) error {
+	orders, err := s.orderRepo.GetOrdersByStatus(ctx, domain.OrderRefundUserOrder)
+	if err != nil {
+		return err
+	}
+	ids := make([]uint, len(orders))
+	for i, o := range orders {
+		s.logger.Infof("Order %d is pending", o.ID)
+		ids[i] = o.ID
+	}
+	err = s.orderRepo.ChangeStatusByIds(ctx, ids, domain.OrderRefundUserOrderInProgress)
+	if err != nil {
+		return err
+	}
+	for _, o := range orders {
+		order := o
+		go func(order domain.Order) {
+			s.logger.Infof("Order %d is pending", order.ID)
+			receipt, err := s.ethereumClient.WithdrawTreasury(ctx, ethereum.WithdrawTreasuryParams{
+				RecipientAddress: order.UserAddress,
+				Amount:           order.Volume.String(),
+				TokenSymbol:      order.SourceTokenSymbol,
+			})
 
-// 	treasuryBal, err := toAdapter.GetTreasuryBalance(ctx, req.ToToken)
-// 	if err != nil {
-// 		return nil, fmt.Errorf("treasury balance error: %w", err)
-// 	}
-// 	if treasuryBal.LessThan(amountOut) {
-// 		return nil, errors.New("insufficient treasury liquidity")
-// 	}
+			if err != nil {
+				s.logger.Errorf("GetBestExchangePriceByVolume err: %v", err)
+				err = s.orderRepo.ChangeStatusByIds(ctx, []uint{order.ID}, domain.OrderRefundUserOrder) // try again
+			}
 
-// 	now := time.Now().UTC()
-// 	q := &domain.Quote{
-// 		ID:          uuid.New().String(),
-// 		FromNetwork: req.FromNetwork,
-// 		FromToken:   req.FromToken,
-// 		ToNetwork:   req.ToNetwork,
-// 		ToToken:     req.ToToken,
-// 		AmountIn:    req.AmountIn,
-// 		AmountOut:   amountOut,
-// 		CreatedAt:   now,
-// 		ExpiresAt:   now.Add(s.quoteTTL),
-// 		Used:        false,
-// 		UserAddress: req.UserAddress,
-// 	}
-// 	if err := s.quotes.Save(ctx, q); err != nil {
-// 		return nil, err
-// 	}
-// 	return q, nil
-// }
+			//TODO:  market user order
+			if receipt.Status == 1 {
+				err = s.orderRepo.ChangeStatusByIds(ctx, []uint{order.ID}, domain.OrderRefundUserOrderSuccess) // canceled completly
+			}
+			if err != nil {
+				s.logger.Errorf("ChangeStatusByIds err: %v", err)
+			}
+		}(order)
+	}
 
-// type ExecuteRequest struct {
-// 	QuoteID        string
-// 	Permit         string
-// 	RequestingUser string
-// }
-
-// func (s *Service) ExecuteQuote(ctx context.Context, req ExecuteRequest) (tx1 string, tx2 string, err error) {
-// 	q, err := s.quotes.GetByID(ctx, req.QuoteID)
-// 	if err != nil {
-// 		return "", "", err
-// 	}
-// 	if q.Used {
-// 		return "", "", errors.New("quote already used")
-// 	}
-// 	if time.Now().After(q.ExpiresAt) {
-// 		return "", "", errors.New("quote expired")
-// 	}
-// 	if req.RequestingUser == "" || req.RequestingUser != q.UserAddress {
-// 		return "", "", errors.New("requesting user mismatch")
-// 	}
-
-// 	fromAdapter, ok := s.adapters[q.FromNetwork]
-// 	if !ok {
-// 		return "", "", errors.New("from adapter missing")
-// 	}
-// 	toAdapter, ok := s.adapters[q.ToNetwork]
-// 	if !ok {
-// 		return "", "", errors.New("to adapter missing")
-// 	}
-
-// 	// Step 1: withdraw user funds to treasury on source chain
-// 	tx1, err = fromAdapter.ExecuteTradeWithPermit(ctx, q.UserAddress, q.FromToken, q.AmountIn, req.Permit)
-// 	if err != nil {
-// 		return "", "", fmt.Errorf("executeTrade failed: %w", err)
-// 	}
-
-// 	// Step 2: send asset from treasury on target chain to user
-// 	tx2, err = toAdapter.SendFromTreasury(ctx, q.UserAddress, q.ToToken, q.AmountOut)
-// 	if err != nil {
-// 		// production: implement reconciliation and refunds here
-// 		return tx1, "", fmt.Errorf("sendFromTreasury failed: %w", err)
-// 	}
-
-// 	// mark used
-// 	if err := s.quotes.MarkUsed(ctx, q.ID); err != nil {
-// 		s.logger.Errorf("mark used failed: %v", err)
-// 		// don't break user flow, but alert
-// 	}
-// 	return tx1, tx2, nil
-// }
+	return nil
+}
+func (s *Service) GetOrderById(ctx context.Context, id uint) (*domain.Order, error) {
+	return s.orderRepo.GetOrderByID(ctx, id)
+}

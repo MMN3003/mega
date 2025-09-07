@@ -23,21 +23,26 @@ var _ domain.OrderRepository = (*OrderRepo)(nil)
 type Order struct {
 	gorm.Model
 
-	Status             string          `json:"status" gorm:"index"`
-	Volume             decimal.Decimal `json:"volume"`
-	FromNetwork        string          `json:"from_network"`
-	ToNetwork          string          `json:"to_network"`
-	UserAddress        string          `json:"user_address"`
-	MarketID           uint            `json:"market_id"`
-	IsBuy              bool            `json:"is_buy"`
-	ContractAddress    string          `json:"contract_address"`
-	Deadline           int64           `json:"deadline"`
-	DestinationAddress *string         `json:"destination_address"`
-	TokenAddress       string          `json:"token_address"`
-	Signature          *string         `json:"signature"`
-	DepositTxHash      *string         `json:"deposit_tx_hash"`
-	ReleaseTxHash      *string         `json:"release_tx_hash"`
-	UserId             string          `json:"user_id" gorm:"index"`
+	Status                 string          `json:"status" gorm:"index"`
+	Volume                 decimal.Decimal `json:"volume"`
+	FromNetwork            string          `json:"from_network"`
+	ToNetwork              string          `json:"to_network"`
+	UserAddress            string          `json:"user_address"`
+	MarketID               uint            `json:"market_id"`
+	MegaMarketID           uint            `json:"mega_market_id"`
+	IsBuy                  bool            `json:"is_buy"`
+	ContractAddress        string          `json:"contract_address"`
+	Deadline               int64           `json:"deadline"`
+	DestinationAddress     *string         `json:"destination_address"`
+	TokenAddress           string          `json:"token_address"`
+	Signature              *string         `json:"signature"`
+	DepositTxHash          *string         `json:"deposit_tx_hash"`
+	ReleaseTxHash          *string         `json:"release_tx_hash"`
+	UserId                 string          `json:"user_id" gorm:"index"`
+	DestinationTokenSymbol string          `json:"destination_token_symbol"`
+	SlipagePercentage      decimal.Decimal `json:"slipage_percentage"`
+	Price                  decimal.Decimal `json:"price"`
+	SourceTokenSymbol      string          `json:"source_token_symbol"`
 }
 
 // ---------- REPO ----------
@@ -60,21 +65,26 @@ func (r *OrderRepo) SaveOrder(ctx context.Context, o *domain.Order) (*domain.Ord
 	// check if signature exist convert it to string use marshal
 
 	model := Order{
-		Status:             string(o.Status),
-		Volume:             o.Volume,
-		FromNetwork:        o.FromNetwork,
-		ToNetwork:          o.ToNetwork,
-		UserAddress:        o.UserAddress,
-		MarketID:           o.MarketID,
-		IsBuy:              o.IsBuy,
-		ContractAddress:    o.ContractAddress,
-		Deadline:           o.Deadline,
-		DestinationAddress: o.DestinationAddress,
-		TokenAddress:       o.TokenAddress,
-		Signature:          marshalToString(o.Signature),
-		DepositTxHash:      o.DepositTxHash,
-		ReleaseTxHash:      o.ReleaseTxHash,
-		UserId:             o.UserId,
+		Status:                 string(o.Status),
+		Volume:                 o.Volume,
+		FromNetwork:            o.FromNetwork,
+		ToNetwork:              o.ToNetwork,
+		UserAddress:            o.UserAddress,
+		MarketID:               o.MarketID,
+		DestinationTokenSymbol: o.DestinationTokenSymbol,
+		IsBuy:                  o.IsBuy,
+		ContractAddress:        o.ContractAddress,
+		Deadline:               o.Deadline,
+		DestinationAddress:     o.DestinationAddress,
+		TokenAddress:           o.TokenAddress,
+		Signature:              marshalToString(o.Signature),
+		DepositTxHash:          o.DepositTxHash,
+		ReleaseTxHash:          o.ReleaseTxHash,
+		UserId:                 o.UserId,
+		MegaMarketID:           o.MegaMarketID,
+		SlipagePercentage:      o.SlipagePercentage,
+		Price:                  o.Price,
+		SourceTokenSymbol:      o.SourceTokenSymbol,
 	}
 	if err := r.db.WithContext(ctx).Create(&model).Error; err != nil {
 		return nil, err
@@ -97,21 +107,26 @@ func (r *OrderRepo) UpdateOrder(ctx context.Context, o *domain.Order) error {
 	return r.db.WithContext(ctx).Model(&Order{}).
 		Where("id = ?", o.ID).
 		Updates(Order{
-			Status:             string(o.Status),
-			Volume:             o.Volume,
-			FromNetwork:        o.FromNetwork,
-			ToNetwork:          o.ToNetwork,
-			UserAddress:        o.UserAddress,
-			MarketID:           o.MarketID,
-			IsBuy:              o.IsBuy,
-			ContractAddress:    o.ContractAddress,
-			Deadline:           o.Deadline,
-			DestinationAddress: o.DestinationAddress,
-			TokenAddress:       o.TokenAddress,
-			Signature:          marshalToString(o.Signature),
-			DepositTxHash:      o.DepositTxHash,
-			ReleaseTxHash:      o.ReleaseTxHash,
-			UserId:             o.UserId,
+			Status:                 string(o.Status),
+			Volume:                 o.Volume,
+			FromNetwork:            o.FromNetwork,
+			ToNetwork:              o.ToNetwork,
+			UserAddress:            o.UserAddress,
+			MarketID:               o.MarketID,
+			IsBuy:                  o.IsBuy,
+			ContractAddress:        o.ContractAddress,
+			Deadline:               o.Deadline,
+			DestinationAddress:     o.DestinationAddress,
+			TokenAddress:           o.TokenAddress,
+			Signature:              marshalToString(o.Signature),
+			DepositTxHash:          o.DepositTxHash,
+			ReleaseTxHash:          o.ReleaseTxHash,
+			UserId:                 o.UserId,
+			MegaMarketID:           o.MegaMarketID,
+			DestinationTokenSymbol: o.DestinationTokenSymbol,
+			SlipagePercentage:      o.SlipagePercentage,
+			Price:                  o.Price,
+			SourceTokenSymbol:      o.SourceTokenSymbol,
 		}).Error
 }
 
@@ -155,22 +170,27 @@ func (r *OrderRepo) ChangeStatusByIds(ctx context.Context, ids []uint, status do
 
 func (r *OrderRepo) toDomainOrder(o *Order) *domain.Order {
 	return &domain.Order{
-		ID:                 o.ID,
-		Status:             domain.OrderStatus(o.Status),
-		Volume:             o.Volume,
-		FromNetwork:        o.FromNetwork,
-		ToNetwork:          o.ToNetwork,
-		UserAddress:        o.UserAddress,
-		MarketID:           o.MarketID,
-		IsBuy:              o.IsBuy,
-		ContractAddress:    o.ContractAddress,
-		Deadline:           o.Deadline,
-		DestinationAddress: o.DestinationAddress,
-		TokenAddress:       o.TokenAddress,
-		Signature:          unmarshalFromJSON[map[string]string](o.Signature),
-		DepositTxHash:      o.DepositTxHash,
-		ReleaseTxHash:      o.ReleaseTxHash,
-		UserId:             o.UserId,
+		ID:                     o.ID,
+		Status:                 domain.OrderStatus(o.Status),
+		Volume:                 o.Volume,
+		FromNetwork:            o.FromNetwork,
+		ToNetwork:              o.ToNetwork,
+		UserAddress:            o.UserAddress,
+		MarketID:               o.MarketID,
+		IsBuy:                  o.IsBuy,
+		ContractAddress:        o.ContractAddress,
+		Deadline:               o.Deadline,
+		DestinationAddress:     o.DestinationAddress,
+		TokenAddress:           o.TokenAddress,
+		Signature:              unmarshalFromJSON[domain.OrderSignature](o.Signature),
+		DepositTxHash:          o.DepositTxHash,
+		ReleaseTxHash:          o.ReleaseTxHash,
+		UserId:                 o.UserId,
+		MegaMarketID:           o.MegaMarketID,
+		DestinationTokenSymbol: o.DestinationTokenSymbol,
+		SlipagePercentage:      o.SlipagePercentage,
+		Price:                  o.Price,
+		SourceTokenSymbol:      o.SourceTokenSymbol,
 	}
 }
 func (r *OrderRepo) toDomainOrders(os []Order) []domain.Order {

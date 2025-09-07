@@ -104,16 +104,142 @@ const docTemplate = `{
                     }
                 }
             }
+        },
+        "/order/:id": {
+            "get": {
+                "description": "Get order by id",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "order"
+                ],
+                "summary": "Get order by id",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/http.FetchAndUpdateMarketsResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "type": "object",
+                            "properties": {
+                                "error": {
+                                    "type": "string"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/order/submit": {
+            "post": {
+                "description": "Submit a new order",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "order"
+                ],
+                "summary": "Submit order",
+                "parameters": [
+                    {
+                        "description": "Request body",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/http.SubmitOrderRequestBody"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/http.SubmitOrderResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "type": "object",
+                            "properties": {
+                                "error": {
+                                    "type": "string"
+                                }
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "type": "object",
+                            "properties": {
+                                "error": {
+                                    "type": "string"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
         }
     },
     "definitions": {
+        "domain.OrderSignature": {
+            "type": "object"
+        },
+        "domain.OrderStatus": {
+            "type": "string",
+            "enum": [
+                "PENDING",
+                "USER_DEBIT_IN_PROGRESS",
+                "USER_DEBIT_SUCCESS",
+                "MARKET_USER_ORDER_IN_PROGRESS",
+                "MARKET_USER_ORDER_SUCCESS",
+                "MARKET_USER_ORDER_FAILED",
+                "FAILED_USER_DEBIT",
+                "REFUND_USER_ORDER",
+                "REFUND_USER_ORDER_IN_PROGRESS",
+                "REFUND_USER_ORDER_SUCCESS",
+                "REFUND_USER_ORDER_FAILED",
+                "TREASURY_CREDIT_IN_PROGRESS",
+                "COMPLETED"
+            ],
+            "x-enum-varnames": [
+                "OrderPending",
+                "OrderUserDebitInProgress",
+                "OrderUserDebitSuccess",
+                "OrderMarketUserOrderInProgress",
+                "OrderMarketUserOrderSuccess",
+                "OrderMarketUserOrderFailed",
+                "OrderFailedUserDebit",
+                "OrderRefundUserOrder",
+                "OrderRefundUserOrderInProgress",
+                "OrderRefundUserOrderSuccess",
+                "OrderRefundUserOrderFailed",
+                "OrderTreasuryCreditInProgress",
+                "OrderCompleted"
+            ]
+        },
         "http.FetchAndUpdateMarketsResponse": {
             "type": "object",
             "properties": {
                 "markets": {
                     "type": "array",
                     "items": {
-                        "$ref": "#/definitions/http.MarketDto"
+                        "$ref": "#/definitions/http.MarketAndMegaMarketDto"
                     }
                 }
             }
@@ -121,9 +247,13 @@ const docTemplate = `{
         "http.GetBestExchangePriceByVolumeRequestBody": {
             "type": "object",
             "properties": {
+                "is_buy": {
+                    "type": "boolean",
+                    "example": true
+                },
                 "mega_market_id": {
                     "type": "integer",
-                    "example": 1
+                    "example": 4
                 },
                 "volume": {
                     "description": "decimal string",
@@ -136,7 +266,7 @@ const docTemplate = `{
             "type": "object",
             "properties": {
                 "market": {
-                    "$ref": "#/definitions/http.MarketDto"
+                    "$ref": "#/definitions/http.MarketAndMegaMarketDto"
                 },
                 "price": {
                     "type": "number",
@@ -144,9 +274,13 @@ const docTemplate = `{
                 }
             }
         },
-        "http.MarketDto": {
+        "http.MarketAndMegaMarketDto": {
             "type": "object",
             "properties": {
+                "exchange_market_fee_percentage": {
+                    "type": "string",
+                    "example": "0.01"
+                },
                 "exchange_market_identifier": {
                     "type": "string",
                     "example": "BTC/USDT"
@@ -166,9 +300,117 @@ const docTemplate = `{
                     "type": "string",
                     "example": "BTC/USDT"
                 },
+                "mega_market": {
+                    "$ref": "#/definitions/http.MegaMarketDto"
+                },
                 "mega_market_id": {
                     "type": "integer",
                     "example": 1
+                }
+            }
+        },
+        "http.MegaMarketDto": {
+            "type": "object",
+            "properties": {
+                "destination_token_symbol": {
+                    "type": "string",
+                    "example": "USDT"
+                },
+                "exchange_market_names": {
+                    "type": "string",
+                    "example": "BTC/USDT"
+                },
+                "fee_percentage": {
+                    "type": "number",
+                    "example": 0.01
+                },
+                "id": {
+                    "type": "integer"
+                },
+                "is_active": {
+                    "type": "boolean",
+                    "example": true
+                },
+                "source_token_symbol": {
+                    "type": "string",
+                    "example": "BTC"
+                }
+            }
+        },
+        "http.SubmitOrderRequestBody": {
+            "type": "object"
+        },
+        "http.SubmitOrderResponse": {
+            "type": "object",
+            "properties": {
+                "contract_address": {
+                    "type": "string"
+                },
+                "created_at": {
+                    "type": "string"
+                },
+                "deadline": {
+                    "type": "integer"
+                },
+                "deposit_tx_hash": {
+                    "type": "string"
+                },
+                "destination_address": {
+                    "type": "string"
+                },
+                "destination_token_symbol": {
+                    "type": "string"
+                },
+                "from_network": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "integer"
+                },
+                "is_buy": {
+                    "type": "boolean"
+                },
+                "market_id": {
+                    "type": "integer"
+                },
+                "mega_market_id": {
+                    "type": "integer"
+                },
+                "price": {
+                    "type": "number"
+                },
+                "release_tx_hash": {
+                    "type": "string"
+                },
+                "signature": {
+                    "$ref": "#/definitions/domain.OrderSignature"
+                },
+                "slipage_percentage": {
+                    "type": "number"
+                },
+                "source_token_symbol": {
+                    "type": "string"
+                },
+                "status": {
+                    "$ref": "#/definitions/domain.OrderStatus"
+                },
+                "to_network": {
+                    "type": "string"
+                },
+                "token_address": {
+                    "type": "string"
+                },
+                "updated_at": {
+                    "type": "string"
+                },
+                "user_address": {
+                    "type": "string"
+                },
+                "user_id": {
+                    "type": "string"
+                },
+                "volume": {
+                    "type": "number"
                 }
             }
         }

@@ -15,8 +15,15 @@ type Config struct {
 	DatabaseURL string
 	OMP         OMPConfig
 	Wallex      WallexConfig
+	Ethereum    EthereumConfig
 }
-
+type EthereumConfig struct {
+	RPCURL                 string
+	AdminKey               string
+	TreasuryKey            string
+	PhoenixContractAddress string
+	USDTContractAddress    string
+}
 type OMPConfig struct {
 	BaseURL string
 	Token   string
@@ -48,6 +55,11 @@ func LoadFromEnv() *Config {
 	if err != nil {
 		log.Fatalf("[FATAL] Invalid QUOTE_TTL duration: %v", err)
 	}
+	sepoliaRPCURL := os.Getenv("SEPOLIA_RPC_URL")
+	adminPrivateKey := os.Getenv("SEPOLIA_ADMIN_PRIVATE_KEY")
+	contractAddress := os.Getenv("SEPOLIA_PHOENIX_CONTRACT_ADDRESS")
+	usdtContractAddress := os.Getenv("SEPOLIA_USDT_CONTRACT_ADDRESS")
+	treasuryKey := os.Getenv("SEPOLIA_TREASURY_PRIVATE_KEY")
 
 	return &Config{
 		ListenAddr:  listenAddr,
@@ -61,6 +73,13 @@ func LoadFromEnv() *Config {
 		Wallex: WallexConfig{
 			BaseURL: getEnv("WALLEX_BASE_URL", "https://api.wallex.ir"),
 			APIKey:  getEnv("WALLEX_API_KEY", ""),
+		},
+		Ethereum: EthereumConfig{
+			RPCURL:                 sepoliaRPCURL,
+			AdminKey:               adminPrivateKey,
+			TreasuryKey:            treasuryKey,
+			PhoenixContractAddress: contractAddress,
+			USDTContractAddress:    usdtContractAddress,
 		},
 	}
 }

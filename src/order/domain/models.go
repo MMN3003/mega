@@ -3,42 +3,57 @@ package domain
 import (
 	"time"
 
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/shopspring/decimal"
 )
 
 type OrderStatus string
 
 const (
-	OrderPending                  OrderStatus = "PENDING"
-	OrderUserDebitInProgress      OrderStatus = "USER_DEBIT_IN_PROGRESS"
-	OrderUserDebitSuccess         OrderStatus = "USER_DEBIT_SUCCESS"
-	OrderFailedUserDebit          OrderStatus = "FAILED_USER_DEBIT"
-	OrderTreasuryCreditInProgress OrderStatus = "TREASURY_CREDIT_IN_PROGRESS"
-	OrderCompleted                OrderStatus = "COMPLETED"
-	OrderFailedTreasuryCredit     OrderStatus = "FAILED_TREASURY_CREDIT"
-	OrderRefundInProgress         OrderStatus = "REFUND_IN_PROGRESS"
-	OrderRefundSuccess            OrderStatus = "REFUND_SUCCESS"
+	OrderPending                   OrderStatus = "PENDING"
+	OrderUserDebitInProgress       OrderStatus = "USER_DEBIT_IN_PROGRESS"
+	OrderUserDebitSuccess          OrderStatus = "USER_DEBIT_SUCCESS"
+	OrderMarketUserOrderInProgress OrderStatus = "MARKET_USER_ORDER_IN_PROGRESS"
+	OrderMarketUserOrderSuccess    OrderStatus = "MARKET_USER_ORDER_SUCCESS"
+	OrderMarketUserOrderFailed     OrderStatus = "MARKET_USER_ORDER_FAILED"
+	OrderFailedUserDebit           OrderStatus = "FAILED_USER_DEBIT"
+	OrderRefundUserOrder           OrderStatus = "REFUND_USER_ORDER"
+	OrderRefundUserOrderInProgress OrderStatus = "REFUND_USER_ORDER_IN_PROGRESS"
+	OrderRefundUserOrderSuccess    OrderStatus = "REFUND_USER_ORDER_SUCCESS"
+	OrderRefundUserOrderFailed     OrderStatus = "REFUND_USER_ORDER_FAILED"
+	OrderTreasuryCreditInProgress  OrderStatus = "TREASURY_CREDIT_IN_PROGRESS"
+	OrderCompleted                 OrderStatus = "COMPLETED"
 )
 
+type OrderSignature struct {
+	V uint8       `json:"v"`
+	R common.Hash `json:"r"`
+	S common.Hash `json:"s"`
+}
 type Order struct {
-	ID                 uint              `json:"id"`
-	Status             OrderStatus       `json:"status"`
-	CreatedAt          time.Time         `json:"created_at"`
-	UpdatedAt          time.Time         `json:"updated_at"`
-	Volume             decimal.Decimal   `json:"volume"`
-	FromNetwork        string            `json:"from_network"`
-	ToNetwork          string            `json:"to_network"`
-	UserAddress        string            `json:"user_address"`
-	MarketID           uint              `json:"market_id"`
-	IsBuy              bool              `json:"is_buy"`
-	ContractAddress    string            `json:"contract_address"`
-	Deadline           int64             `json:"deadline"`
-	DestinationAddress *string           `json:"destination_address"`
-	TokenAddress       string            `json:"token_address"`
-	Signature          map[string]string `json:"signature"`
-	DepositTxHash      *string           `json:"deposit_tx_hash"`
-	ReleaseTxHash      *string           `json:"release_tx_hash"`
-	UserId             string            `json:"user_id"`
+	ID                     uint            `json:"id"`
+	Status                 OrderStatus     `json:"status"`
+	CreatedAt              time.Time       `json:"created_at"`
+	UpdatedAt              time.Time       `json:"updated_at"`
+	Volume                 decimal.Decimal `json:"volume"`
+	Price                  decimal.Decimal `json:"price"`
+	FromNetwork            string          `json:"from_network"`
+	ToNetwork              string          `json:"to_network"`
+	UserAddress            string          `json:"user_address"`
+	MarketID               uint            `json:"market_id"`
+	MegaMarketID           uint            `json:"mega_market_id"`
+	SlipagePercentage      decimal.Decimal `json:"slipage_percentage"`
+	IsBuy                  bool            `json:"is_buy"`
+	ContractAddress        string          `json:"contract_address"`
+	Deadline               int64           `json:"deadline"`
+	DestinationAddress     *string         `json:"destination_address"`
+	TokenAddress           string          `json:"token_address"`
+	Signature              OrderSignature  `json:"signature"`
+	DepositTxHash          *string         `json:"deposit_tx_hash"`
+	ReleaseTxHash          *string         `json:"release_tx_hash"`
+	UserId                 string          `json:"user_id"`
+	DestinationTokenSymbol string          `json:"destination_token_symbol"`
+	SourceTokenSymbol      string          `json:"source_token_symbol"`
 }
 
 // Coin description

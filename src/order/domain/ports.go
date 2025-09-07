@@ -11,7 +11,9 @@ type OrderUsecase interface {
 	SubmitOrder(ctx context.Context, o *Order) (*Order, error)
 	FetchPendingOrders(ctx context.Context) error
 	FetchSuccessDebitOrders(ctx context.Context) error
-	FetchFailedTreasuryCreditOrders(ctx context.Context) error
+	FetchReturnUserOrders(ctx context.Context) error
+	FetchMarketUserOrderSuccessOrders(ctx context.Context) error
+	FetchFailedMarketUserOrderOrders(ctx context.Context) error
 }
 type OrderRepository interface {
 	SaveOrder(ctx context.Context, o *Order) (*Order, error)
