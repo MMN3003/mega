@@ -292,45 +292,77 @@ func (s *MarketService) calculateOmpfinexPrice(depth ompfinex.OrderBook, volume 
 		return decimal.Zero, errors.New("volume must be positive")
 	}
 
-	totalVolume := decimal.Zero
-	totalCost := decimal.Zero
-	sideOrders := depth.Asks
-	if !isBuy {
-		sideOrders = depth.Bids
+	var (
+		totalVolume = decimal.Zero // how much of target volume we’ve filled
+		totalCost   = decimal.Zero // accumulated cost (price * qty)
+	)
+
+	if isBuy {
+		// Buying → consume from Asks
+		for i, ask := range depth.Asks {
+			if len(ask) != 2 {
+				continue
+			}
+
+			price, err1 := decimal.NewFromString(ask[0])
+			vol, err2 := decimal.NewFromString(ask[1])
+			if err1 != nil || err2 != nil || price.LessThanOrEqual(decimal.Zero) || vol.LessThanOrEqual(decimal.Zero) {
+				continue
+			}
+
+			remaining := volume.Sub(totalVolume)
+			available := vol
+			consumed := decimal.Min(remaining, available)
+
+			totalCost = totalCost.Add(price.Mul(consumed))
+			totalVolume = totalVolume.Add(consumed)
+
+			fmt.Printf("[OMP BUY] Level=%d Price=%s Avail=%s Consumed=%s TotalCost=%s TotalVol=%s\n",
+				i, price, available, consumed, totalCost, totalVolume)
+
+			if totalVolume.GreaterThanOrEqual(volume) {
+				avg := totalCost.Div(volume)
+				fmt.Printf("[OMP BUY COMPLETE] AvgPrice=%s\n", avg)
+				return avg, nil
+			}
+		}
+	} else {
+		// Selling → consume from Bids
+		for i, bid := range depth.Bids {
+			if len(bid) != 2 {
+				continue
+			}
+
+			price, err1 := decimal.NewFromString(bid[0])
+			vol, err2 := decimal.NewFromString(bid[1])
+			if err1 != nil || err2 != nil || price.LessThanOrEqual(decimal.Zero) || vol.LessThanOrEqual(decimal.Zero) {
+				continue
+			}
+
+			remaining := volume.Sub(totalVolume)
+			available := vol
+			consumed := decimal.Min(remaining, available)
+
+			totalCost = totalCost.Add(price.Mul(consumed))
+			totalVolume = totalVolume.Add(consumed)
+
+			fmt.Printf("[OMP SELL] Level=%d Price=%s Avail=%s Consumed=%s TotalCost=%s TotalVol=%s\n",
+				i, price, available, consumed, totalCost, totalVolume)
+
+			if totalVolume.GreaterThanOrEqual(volume) {
+				avg := totalCost.Div(volume)
+				fmt.Printf("[OMP SELL COMPLETE] AvgPrice=%s\n", avg)
+				return avg, nil
+			}
+		}
 	}
-	for _, ask := range sideOrders {
-		if len(ask) != 2 {
-			continue // skip malformed entry
-		}
 
-		price, err := decimal.NewFromString(ask[0])
-		if err != nil {
-			continue
-		}
-
-		availVol, err := decimal.NewFromString(ask[1])
-		if err != nil {
-			continue
-		}
-
-		if availVol.LessThanOrEqual(decimal.Zero) {
-			continue
-		}
-
-		// If this level covers remaining volume
-		if totalVolume.Add(availVol).GreaterThanOrEqual(volume) {
-			needed := volume.Sub(totalVolume)
-			totalCost = totalCost.Add(price.Mul(needed))
-			return totalCost.Div(volume), nil // weighted average price
-		}
-
-		// Consume full level
-		totalCost = totalCost.Add(price.Mul(availVol))
-		totalVolume = totalVolume.Add(availVol)
-	}
-
-	return decimal.Zero, errors.New("not enough volume in order book")
+	return decimal.Zero, fmt.Errorf(
+		"not enough liquidity in order book (available=%s, requested=%s)",
+		totalVolume, volume,
+	)
 }
+
 func (s *MarketService) GetMarketByID(ctx context.Context, id uint) (*domain.Market, error) {
 	return s.marketsRepo.GetMarketByID(ctx, id)
 }
@@ -351,31 +383,59 @@ func (s *MarketService) calculateWallexPrice(depth *wallex.OrderBook, volume dec
 		totalCost   = decimal.Zero
 	)
 
-	sideOrders := depth.Asks
-	if !isBuy {
-		sideOrders = depth.Bids
-	}
-	// Iterate through asks (sorted from best/lowest price first)
-	for _, ask := range sideOrders {
-		if ask.Price.LessThanOrEqual(decimal.Zero) || ask.Quantity.LessThanOrEqual(decimal.Zero) {
-			continue // skip invalid entries
+	if isBuy {
+		// Buying → consume from Asks (lowest prices first)
+		for i, ask := range depth.Asks {
+			if ask.Price.LessThanOrEqual(decimal.Zero) || ask.Quantity.LessThanOrEqual(decimal.Zero) {
+				continue
+			}
+
+			remaining := volume.Sub(totalCost)
+			available := ask.Quantity.Mul(ask.Price)
+			consumed := decimal.Min(remaining, available)
+
+			// accumulate totals
+			totalCost = totalCost.Add(consumed)
+			totalVolume = totalVolume.Add(consumed.Div(ask.Price))
+
+			fmt.Printf("[BUY] Level=%d Price=%s Available=%s Consumed=%s TotalCost=%s TotalVolume=%s\n",
+				i, ask.Price, available, consumed, totalCost, totalVolume)
+
+			if totalCost.GreaterThanOrEqual(volume) {
+				avg := totalCost.Div(totalVolume)
+				fmt.Printf("[BUY COMPLETE] AvgPrice=%s\n", avg)
+				return avg, nil
+			}
 		}
+	} else {
+		// Selling → consume from Bids (highest prices first)
+		for i, bid := range depth.Bids {
+			if bid.Price.LessThanOrEqual(decimal.Zero) || bid.Quantity.LessThanOrEqual(decimal.Zero) {
+				continue
+			}
 
-		// Calculate how much we need from this level
-		remaining := volume.Sub(totalVolume)
-		available := ask.Quantity
-		consumed := decimal.Min(remaining, available)
+			remaining := volume.Sub(totalVolume)
+			available := bid.Quantity
+			consumed := decimal.Min(remaining, available)
 
-		// Add to totals
-		totalCost = totalCost.Add(ask.Price.Mul(consumed))
-		totalVolume = totalVolume.Add(consumed)
+			// accumulate totals
+			totalCost = totalCost.Add(bid.Price.Mul(consumed))
+			totalVolume = totalVolume.Add(consumed)
 
-		// If we've reached the target volume
-		if totalVolume.GreaterThanOrEqual(volume) {
-			return totalCost.Div(volume), nil // return weighted average price
+			fmt.Printf("[SELL] Level=%d Price=%s Available=%s Consumed=%s TotalCost=%s TotalVolume=%s\n",
+				i, bid.Price, available, consumed, totalCost, totalVolume)
+
+			if totalVolume.GreaterThanOrEqual(volume) {
+				avg := totalCost.Div(volume)
+				fmt.Printf("[SELL COMPLETE] AvgPrice=%s\n", avg)
+				return avg, nil
+			}
 		}
 	}
 
-	return decimal.Zero, fmt.Errorf("not enough liquidity in order book (available: %s, requested: %s)",
-		totalVolume.String(), volume.String())
+	// Not enough liquidity
+	return decimal.Zero, fmt.Errorf(
+		"not enough liquidity in order book (available=%s, requested=%s)",
+		totalVolume, volume,
+	)
 }

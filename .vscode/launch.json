@@ -6,7 +6,26 @@
       "type": "go",
       "request": "launch",
       "mode": "auto",
-      "program": "${workspaceFolder}"
+      "program": "${workspaceFolder}",
+      "env": {
+        "GO111MODULE": "on"
+      },
+      "dlvLoadConfig": {
+        "maxStringLen": 200, // show long strings
+        "followPointers": true, // follow pointers in debug
+        "maxVariableRecurse": 3, // recurse into nested structs
+        "showPrivateFields": true, // show unexported fields
+        "maxArrayValues": 256, // increase slice/array items shown
+        "maxStructFields": -1 // show all struct fields
+      },
+      "showGlobalVariables": true,
+      "expressions": [
+        // Auto-evaluate decimal.Decimal values as strings
+        {
+          "type": "github.com/shopspring/decimal.Decimal",
+          "toString": "String()"
+        }
+      ]
     }
   ]
 }

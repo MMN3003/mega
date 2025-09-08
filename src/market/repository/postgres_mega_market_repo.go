@@ -64,6 +64,14 @@ func (r *MegaMarketRepo) Seed(ctx context.Context) error {
 			DestinationTokenSymbol: "USDT",
 			SlipagePercentage:      decimal.NewFromFloat(0.02),
 		},
+		{
+			ExchangeMarketNames:    `["ETH/USDT","Ethereum/Tether"]`,
+			IsActive:               true,
+			FeePercentage:          decimal.NewFromFloat(0.01), // TODO: change this
+			SourceTokenSymbol:      "ETH",
+			DestinationTokenSymbol: "USDT",
+			SlipagePercentage:      decimal.NewFromFloat(0.02),
+		},
 	}
 
 	// Insert seed data
